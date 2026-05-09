@@ -1,0 +1,28 @@
+{
+  "name": "utepils",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch server.ts",
+    "start": "tsx server.ts",
+    "test": "tsx --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=24.3.0"
+  },
+  "dependencies": {
+    "geotiff": "latest",
+    "geotiff-geokeys-to-proj4": "latest",
+    "proj4": "latest",
+    "remix": "^3.0.0-beta.0",
+    "suncalc": "latest",
+    "tsx": "latest"
+  },
+  "devDependencies": {
+    "@types/suncalc": "latest",
+    "@types/google.maps": "latest",
+    "@types/node": "latest",
+    "typescript": "latest"
+  }
+}
