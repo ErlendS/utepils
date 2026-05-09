@@ -1,5 +1,7 @@
 # utepils
 
+This project is an experiment in building an app using only AI.
+
 Remix 3 MVP for checking whether a clicked outdoor spot is in sun or shade today, assuming clear skies.
 
 ## What it does
