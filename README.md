@@ -21,12 +21,6 @@ GOOGLE_MAPS_PLATFORM_API_KEY=...
 GOOGLE_MAPS_PLATFORM_REFERER=http://localhost:3000/
 ```
 
-For production on `flawed.tech`, set:
-
-```sh
-GOOGLE_MAPS_PLATFORM_REFERER=https://flawed.tech/
-```
-
 ## Commands
 
 ```sh
