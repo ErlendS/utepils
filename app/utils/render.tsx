@@ -2,7 +2,7 @@ import type { RemixNode } from 'remix/ui'
 import { renderToStream } from 'remix/ui/server'
 
 import { router } from '../router.ts'
-// import { setSecurityHeaders } from './security-headers.ts'
+import { setSecurityHeaders } from './security-headers.ts'
 
 export function render(node: RemixNode, request: Request, init?: ResponseInit) {
   let stream = renderToStream(node, {
@@ -23,7 +23,7 @@ export function render(node: RemixNode, request: Request, init?: ResponseInit) {
     headers.set('Content-Type', 'text/html; charset=utf-8')
   }
   headers.set('X-Robots-Tag', 'noindex, nofollow')
-  // setSecurityHeaders(headers)
+  setSecurityHeaders(headers)
 
   return new Response(stream, { ...init, headers })
 }
