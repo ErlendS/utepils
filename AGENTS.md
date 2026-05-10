@@ -24,5 +24,6 @@ pnpm run typecheck
 
 - DSM fetching stays server-side.
 - Google Maps JavaScript key is exposed to the browser by design.
-- `GOOGLE_MAPS_PLATFORM_REFERER` must match the HTTP referrer restrictions configured on the key.
+- `GOOGLE_SOLAR_API_KEY` is server-only and must not be exposed by browser config.
+- `GOOGLE_MAPS_PLATFORM_REFERER` is sent with Solar API requests and must match HTTP referrer restrictions if configured on `GOOGLE_SOLAR_API_KEY`.
 - The Solar API does not accept a `signature` query parameter on `dataLayers:get`; use the API key and an allowed referrer.

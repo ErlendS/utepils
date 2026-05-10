@@ -18,8 +18,12 @@ Remix 3 MVP for checking whether a clicked outdoor spot is in sun or shade today
 
 ```sh
 GOOGLE_MAPS_PLATFORM_API_KEY=...
+GOOGLE_SOLAR_API_KEY=...
 GOOGLE_MAPS_PLATFORM_REFERER=http://localhost:3000/
 ```
+
+`GOOGLE_MAPS_PLATFORM_API_KEY` is the browser-visible Maps JavaScript key.
+`GOOGLE_SOLAR_API_KEY` is server-only and should only allow the Solar API.
 
 ## Commands
 

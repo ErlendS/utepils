@@ -96,7 +96,7 @@ async function buildProfileResponse(lat: number, lng: number) {
 }
 
 function getGoogleMapsApiKey() {
-  return process.env.GOOGLE_MAPS_PLATFORM_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY
+  return process.env.GOOGLE_MAPS_PLATFORM_API_KEY
 }
 
 function json(body: unknown, init?: ResponseInit) {

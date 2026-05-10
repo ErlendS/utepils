@@ -36,9 +36,9 @@ export function getDsmForPoint(request: DsmRequest) {
 }
 
 async function fetchDsmForPoint(request: DsmRequest): Promise<DsmRaster> {
-  let apiKey = getGoogleMapsApiKey()
+  let apiKey = getGoogleSolarApiKey()
   if (!apiKey) {
-    throw new Error('Missing GOOGLE_MAPS_PLATFORM_API_KEY.')
+    throw new Error('Missing GOOGLE_SOLAR_API_KEY.')
   }
 
   let layers = await getDataLayers(request, apiKey)
@@ -160,8 +160,8 @@ function appendApiKey(url: string, apiKey: string) {
   return `${url}${url.includes('?') ? '&' : '?'}key=${encodeURIComponent(apiKey)}`
 }
 
-function getGoogleMapsApiKey() {
-  return process.env.GOOGLE_MAPS_PLATFORM_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY
+function getGoogleSolarApiKey() {
+  return process.env.GOOGLE_SOLAR_API_KEY
 }
 
 function getGoogleRequestHeaders() {
