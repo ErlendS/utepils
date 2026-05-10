@@ -56,9 +56,29 @@ const els = {
   windows: document.querySelector<HTMLElement>('#sun-windows')!,
 }
 
-bootstrap().catch((error) => {
-  showErrorToast(error instanceof Error ? error.message : 'Unable to start the app.')
+let bootstrapped = false
+let bootstrapping = false
+
+void tryBootstrap()
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && !bootstrapped) {
+    hideToast()
+    void tryBootstrap()
+  }
 })
+
+async function tryBootstrap() {
+  if (bootstrapped || bootstrapping) return
+  bootstrapping = true
+  try {
+    await bootstrap()
+    bootstrapped = true
+  } catch (error) {
+    bootstrapping = false
+    showErrorToast(error instanceof Error ? error.message : 'Unable to start the app.')
+  }
+}
 
 async function bootstrap() {
   setSliderToNow()
@@ -562,12 +582,13 @@ function formatMinutes(minutes: number) {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
 }
 
-function loadGoogleMaps(apiKey: string) {
+function loadGoogleMaps(apiKey: string): Promise<void> {
+  if (window.google?.maps) return Promise.resolve()
   return new Promise<void>((resolve, reject) => {
     window.__initSunMap = () => resolve()
+    document.querySelector('script[src*="maps.googleapis.com"]')?.remove()
     let script = document.createElement('script')
     script.async = true
-    script.defer = true
     script.onerror = () => reject(new Error('Google Maps JavaScript failed to load.'))
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
       apiKey,
