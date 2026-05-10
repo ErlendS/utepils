@@ -3,6 +3,7 @@ import { fromArrayBuffer } from 'geotiff'
 import proj4 from 'proj4'
 
 import type { Bounds, DsmRaster } from './horizon.ts'
+import { LruMap } from '../utils/lru-map.ts'
 
 interface DataLayersResponse {
   dsmUrl?: string
@@ -17,7 +18,7 @@ interface DsmRequest {
   radiusMeters: number
 }
 
-const dsmCache = new Map<string, Promise<DsmRaster>>()
+const dsmCache = new LruMap<string, Promise<DsmRaster>>(20)
 
 export function getDsmForPoint(request: DsmRequest) {
   let key = [

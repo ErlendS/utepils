@@ -3,12 +3,13 @@ import type { BuildAction } from 'remix/fetch-router'
 import type { routes } from '../routes.ts'
 import { computeHorizonProfile } from '../services/horizon.ts'
 import { getDsmForPoint } from '../services/solar.ts'
+import { LruMap } from '../utils/lru-map.ts'
 
 const OSLO = { lat: 59.9139, lng: 10.7522 }
 const SOLAR_RADIUS_METERS = 300
 const SOLAR_PIXEL_SIZE_METERS = 0.5
 
-const profileCache = new Map<string, Promise<Response>>()
+const profileCache = new LruMap<string, Promise<Response>>(200)
 
 export const apiConfig: BuildAction<'GET', typeof routes.apiConfig> = {
   handler() {
