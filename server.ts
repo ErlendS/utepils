@@ -81,7 +81,6 @@ async function servePublicAsset(request: Request) {
     return new Response(request.method === 'HEAD' ? null : body, {
       headers: {
         'Cache-Control': 'public, max-age=3600',
-        'Content-Length': String(body.byteLength),
         'Content-Type': contentType,
       },
     })
