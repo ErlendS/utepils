@@ -80,11 +80,15 @@ export function SunPage() {
               </div>
               <dl mix={factsStyle}>
                 <div>
-                  <dt>Point</dt>
+                  <dt title="The latitude and longitude of the spot selected on the map.">
+                    Point
+                  </dt>
                   <dd id="point-readout">None selected</dd>
                 </div>
                 <div>
-                  <dt>DSM</dt>
+                  <dt title="Digital Surface Model: elevation data for ground, buildings, and tree canopy.">
+                    DSM
+                  </dt>
                   <dd id="dsm-readout">Waiting</dd>
                 </div>
               </dl>
