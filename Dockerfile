@@ -36,4 +36,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["pnpm", "run", "start"]
+CMD ["/app/node_modules/.bin/tsx", "server.ts"]
