@@ -64,7 +64,7 @@ async function bootstrap() {
   setSliderToNow()
   els.slider.addEventListener('input', () => updateForCurrentTime())
 
-  let config = await fetchJson<ConfigResponse>('/api/config')
+  let config = await fetchWithRetry<ConfigResponse>('/api/config', 3, 1500)
   await loadGoogleMaps(config.googleMapsApiKey)
 
   map = new google.maps.Map(els.map, {
@@ -576,17 +576,29 @@ function loadGoogleMaps(apiKey: string) {
   })
 }
 
+async function fetchWithRetry<T>(url: string, attempts: number, delayMs: number): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fetchJson<T>(url)
+    } catch (error) {
+      if (i === attempts - 1) throw error
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
+  throw new Error('unreachable')
+}
+
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   let response = await fetch(url, { signal })
-  let body = await response.json().catch(() => undefined)
   if (!response.ok) {
+    let body = await response.json().catch(() => undefined)
     let message =
       body && typeof body === 'object' && 'error' in body
         ? String((body as { error: unknown }).error)
         : `Request failed with ${response.status}`
     throw new Error(message)
   }
-  return body as T
+  return response.json() as Promise<T>
 }
 
 function showErrorToast(message: string) {
