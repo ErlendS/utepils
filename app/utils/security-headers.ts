@@ -6,6 +6,7 @@ const GOOGLE_MAPS_SCRIPT_SOURCES = [
 const GOOGLE_MAPS_CONNECT_SOURCES = [
   "https://maps.googleapis.com",
   "https://mapsresources-pa.googleapis.com",
+  "https://places.googleapis.com",
 ];
 
 const GOOGLE_MAPS_IMAGE_SOURCES = [

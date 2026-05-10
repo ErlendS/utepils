@@ -2,7 +2,7 @@ import type { BuildAction } from 'remix/fetch-router'
 
 import type { routes } from '../routes.ts'
 import { computeHorizonProfile } from '../services/horizon.ts'
-import { getDsmForPoint } from '../services/solar.ts'
+import { getDsmForPoint, SolarCoverageError } from '../services/solar.ts'
 import { LruMap } from '../utils/lru-map.ts'
 import { checkRateLimit, getClientIp } from '../utils/rate-limit.ts'
 
@@ -97,9 +97,20 @@ async function buildProfileResponse(lat: number, lng: number) {
     )
   } catch (error) {
     profileCache.delete(`${lat.toFixed(5)},${lng.toFixed(5)}`)
+    if (isCoverageError(error)) {
+      return json({ error: 'Outside high-resolution Solar coverage.' }, { status: 404 })
+    }
+
     let message = error instanceof Error ? error.message : 'Unable to compute sun profile.'
     return json({ error: message }, { status: 502 })
   }
+}
+
+function isCoverageError(error: unknown) {
+  return (
+    error instanceof SolarCoverageError ||
+    (error instanceof Error && error.message === 'The selected point is outside valid DSM coverage.')
+  )
 }
 
 function getGoogleMapsApiKey() {

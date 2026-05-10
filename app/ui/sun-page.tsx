@@ -50,13 +50,27 @@ export function SunPage() {
                 <img src="/logo.png" alt="Utepils logo" />
                 <span>utepils</span>
               </div>
-              <h1 mix={titleStyle}>Is this spot in sun right now?</h1>
+              <h1 mix={titleStyle}>
+                Can I enjoy a beer in the sun right now? 🍻
+              </h1>
               <p mix={copyStyle}>
-                Pick a spot on the map to see when it gets direct sunlight
+                Click a spot on the map to see when it gets direct sunlight
                 today. Use the time slider to check how the sun changes through
                 the day.
               </p>
             </div>
+
+            <div mix={dividerStyle} aria-hidden="true"></div>
+
+            <section mix={searchStyle} aria-label="Address search">
+              <p>Address</p>
+              <div id="place-search" mix={placeSearchStyle}></div>
+              <p
+                id="place-search-message"
+                mix={placeSearchMessageStyle}
+                aria-live="polite"
+              ></p>
+            </section>
 
             <button
               id="use-location-button"
@@ -137,7 +151,7 @@ const pageStyle = css({
 
 const shellStyle = css({
   display: "grid",
-  gridTemplateColumns: "380px 1fr",
+  gridTemplateColumns: "minmax(0, 380px) minmax(0, 1fr)",
   minHeight: "100vh",
   "@media (max-width: 860px)": {
     gridTemplateColumns: "1fr",
@@ -151,7 +165,11 @@ const panelStyle = css({
   display: "flex",
   flexDirection: "column",
   gap: "24px",
+  minWidth: 0,
+  overflowX: "hidden",
   padding: "28px",
+  position: "relative",
+  zIndex: 1,
 });
 
 const brandStyle = css({
@@ -184,6 +202,47 @@ const copyStyle = css({
   fontSize: "15px",
   lineHeight: 1.55,
   margin: "14px 0 0",
+});
+
+const dividerStyle = css({
+  background:
+    "linear-gradient(90deg, rgba(215, 221, 210, 0), #d7ddd2 18%, #d7ddd2 82%, rgba(215, 221, 210, 0))",
+  height: "1px",
+  margin: "4px 0",
+  width: "100%",
+});
+
+const searchStyle = css({
+  display: "grid",
+  gap: "8px",
+  minWidth: 0,
+  "& p": {
+    color: "#34413b",
+    fontSize: "13px",
+    fontWeight: 800,
+    margin: 0,
+  },
+});
+
+const placeSearchStyle = css({
+  minHeight: "44px",
+  minWidth: 0,
+  overflowX: "clip",
+  width: "100%",
+  "& gmp-place-autocomplete": {
+    colorScheme: "light",
+    display: "block",
+    maxWidth: "100%",
+    minWidth: 0,
+    width: "100%",
+  },
+});
+
+const placeSearchMessageStyle = css({
+  color: "#b14242",
+  fontSize: "12px",
+  lineHeight: 1.35,
+  margin: 0,
 });
 
 const locationButtonStyle = css({
@@ -311,6 +370,7 @@ const windowsStyle = css({
 });
 
 const mapWrapStyle = css({
+  minWidth: 0,
   minHeight: "100vh",
   position: "relative",
 });

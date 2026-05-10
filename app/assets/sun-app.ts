@@ -36,6 +36,20 @@ type SunMarkerOverlay = google.maps.OverlayView & {
   setPosition(point: google.maps.LatLngLiteral): void
 }
 
+type PlacesLibraryWithAutocompleteElement = google.maps.PlacesLibrary & {
+  PlaceAutocompleteElement: typeof google.maps.places.PlaceAutocompleteElement
+}
+
+class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'HttpError'
+  }
+}
+
 let map: google.maps.Map
 let marker: SunMarkerOverlay | undefined
 let selectedProfile: HorizonResponse | undefined
@@ -48,6 +62,8 @@ const els = {
   label: document.querySelector<HTMLElement>('#status-label')!,
   detail: document.querySelector<HTMLElement>('#status-detail')!,
   map: document.querySelector<HTMLElement>('#map')!,
+  placeSearchMessage: document.querySelector<HTMLElement>('#place-search-message')!,
+  placeSearch: document.querySelector<HTMLElement>('#place-search')!,
   point: document.querySelector<HTMLElement>('#point-readout')!,
   slider: document.querySelector<HTMLInputElement>('#time-slider')!,
   time: document.querySelector<HTMLElement>('#time-output')!,
@@ -92,7 +108,7 @@ async function bootstrap() {
     clickableIcons: false,
     fullscreenControl: false,
     mapTypeControl: true,
-    mapTypeId: google.maps.MapTypeId.ROADMAP,
+    mapTypeId: google.maps.MapTypeId.TERRAIN,
     streetViewControl: false,
     zoom: 15,
   })
@@ -105,7 +121,61 @@ async function bootstrap() {
     void useCurrentLocation()
   })
 
+  void setupPlaceSearch(config.city).catch((error) => {
+    setPlaceSearchMessage(error instanceof Error ? error.message : 'Address search is unavailable.')
+  })
   updateForCurrentTime()
+}
+
+async function setupPlaceSearch(origin: google.maps.LatLngLiteral) {
+  let { PlaceAutocompleteElement } = (await google.maps.importLibrary('places')) as PlacesLibraryWithAutocompleteElement
+  let placeAutocomplete = new PlaceAutocompleteElement({
+    locationBias: map.getBounds() ?? origin,
+    origin,
+    requestedLanguage: navigator.language || document.documentElement.lang || null,
+  })
+
+  placeAutocomplete.placeholder = 'Search address or place'
+  placeAutocomplete.setAttribute('aria-label', 'Search address or place')
+  placeAutocomplete.addEventListener('gmp-error', () => {
+    setPlaceSearchMessage('Address search is unavailable.')
+  })
+  placeAutocomplete.addEventListener('gmp-select', async (event) => {
+    let place = event.placePrediction.toPlace()
+    setStatus('Finding address', 'Loading the selected place.', 'loading')
+    setPlaceSearchMessage()
+    hideToast()
+
+    try {
+      await place.fetchFields({
+        fields: ['displayName', 'formattedAddress', 'location'],
+      })
+      if (!place.location) throw new Error('No map location found for that address.')
+
+      let point = place.location.toJSON()
+      if (place.viewport) {
+        map.fitBounds(place.viewport)
+      } else {
+        map.panTo(point)
+        map.setZoom(Math.max(map.getZoom() ?? 0, 17))
+      }
+      await selectPoint(point)
+    } catch (error) {
+      let message = error instanceof Error ? error.message : 'Unable to load that address.'
+      setStatus('Address failed', message, 'error')
+      setPlaceSearchMessage(message)
+    }
+  })
+
+  map.addListener('idle', () => {
+    placeAutocomplete.locationBias = map.getBounds() ?? origin
+  })
+
+  els.placeSearch.replaceChildren(placeAutocomplete)
+}
+
+function setPlaceSearchMessage(message = '') {
+  els.placeSearchMessage.textContent = message
 }
 
 async function useCurrentLocation() {
@@ -192,8 +262,9 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
     if (error instanceof DOMException && error.name === 'AbortError') return
     setMarker(point, 'error')
     let message = error instanceof Error ? error.message : 'Profile request failed.'
-    setStatus('Profile failed', message, 'error')
-    showErrorToast(message)
+    let isCoverageError = error instanceof HttpError && error.status === 404
+    setStatus(isCoverageError ? 'Outside coverage' : 'Profile failed', message, 'error')
+    if (!isCoverageError) showErrorToast(message)
     els.windows.innerHTML = ''
   }
 }
@@ -640,7 +711,7 @@ async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
       body && typeof body === 'object' && 'error' in body
         ? String((body as { error: unknown }).error)
         : `Request failed with ${response.status}`
-    throw new Error(message)
+    throw new HttpError(message, response.status)
   }
   return response.json() as Promise<T>
 }

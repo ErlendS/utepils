@@ -15,6 +15,7 @@ test('content security policy allows the Google Maps browser API', () => {
     "'self'",
     'https://maps.googleapis.com',
     'https://mapsresources-pa.googleapis.com',
+    'https://places.googleapis.com',
     'data:',
   ])
   assert.deepEqual(policy.get('frame-src'), ['https://www.google.com', 'https://maps.google.com'])

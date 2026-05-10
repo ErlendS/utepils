@@ -20,6 +20,13 @@ interface DsmRequest {
 
 const dsmCache = new LruMap<string, Promise<DsmRaster>>(20)
 
+export class SolarCoverageError extends Error {
+  constructor(message = 'Outside high-resolution Solar coverage.') {
+    super(message)
+    this.name = 'SolarCoverageError'
+  }
+}
+
 export function getDsmForPoint(request: DsmRequest) {
   let key = [
     request.lat.toFixed(3),
@@ -30,7 +37,10 @@ export function getDsmForPoint(request: DsmRequest) {
 
   let cached = dsmCache.get(key)
   if (!cached) {
-    cached = fetchDsmForPoint(request)
+    cached = fetchDsmForPoint(request).catch((error: unknown) => {
+      dsmCache.delete(key)
+      throw error
+    })
     dsmCache.set(key, cached)
   }
   return cached
@@ -44,7 +54,7 @@ async function fetchDsmForPoint(request: DsmRequest): Promise<DsmRaster> {
 
   let layers = await getDataLayers(request, apiKey)
   if (!layers.dsmUrl) {
-    throw new Error('Solar API did not return a DSM URL for this point.')
+    throw new SolarCoverageError()
   }
 
   return downloadDsm(layers, apiKey)
@@ -67,7 +77,9 @@ async function getDataLayers(request: DsmRequest, apiKey: string): Promise<DataL
   })
   let body = await response.json().catch(() => undefined)
   if (!response.ok) {
-    throw new Error(formatSolarError(body, `Solar dataLayers:get failed with ${response.status}.`))
+    let message = formatSolarError(body, `Solar dataLayers:get failed with ${response.status}.`)
+    if (isSolarCoverageMessage(message)) throw new SolarCoverageError()
+    throw new Error(message)
   }
   return body as DataLayersResponse
 }
@@ -176,6 +188,19 @@ function formatSolarError(body: unknown, fallback: string) {
     if (error?.message) return `${error.status ?? 'Solar API error'}: ${error.message}`
   }
   return fallback
+}
+
+function isSolarCoverageMessage(message: string) {
+  let normalized = message.toLowerCase()
+  return (
+    normalized.includes('no imagery') ||
+    normalized.includes('not available') ||
+    normalized.includes('not found') ||
+    normalized.includes('out of coverage') ||
+    normalized.includes('outside') ||
+    normalized.includes('quality') ||
+    normalized.includes('dsm')
+  )
 }
 
 function toRadians(degrees: number) {
