@@ -545,6 +545,7 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
   let day = element.querySelector<HTMLElement>('.sun-map-marker__day')!
   let label = element.querySelector<HTMLElement>('.sun-map-marker__label')!
   let renderedSunAngle: number | undefined
+  day.title = 'Drag to change time'
 
   day.addEventListener('pointerdown', (event) => {
     if (!selectedProfile) return
@@ -700,7 +701,7 @@ function injectMarkerStyles() {
       pointer-events: none;
       position: absolute;
       touch-action: none;
-      transition: opacity 180ms ease, box-shadow 180ms ease;
+      transition: box-shadow 160ms ease, filter 160ms ease, opacity 180ms ease, transform 160ms ease;
     }
 
     .sun-map-marker[data-has-day="true"] .sun-map-marker__day {
@@ -711,6 +712,16 @@ function injectMarkerStyles() {
 
     .sun-map-marker[data-dragging="true"] .sun-map-marker__day {
       cursor: grabbing;
+    }
+
+    .sun-map-marker[data-has-day="true"] .sun-map-marker__day:hover,
+    .sun-map-marker[data-dragging="true"] .sun-map-marker__day {
+      box-shadow:
+        inset 0 0 0 2px rgba(23, 32, 29, 0.22),
+        inset 0 0 0 999px rgba(23, 32, 29, 0.07),
+        0 18px 42px var(--marker-shadow);
+      filter: saturate(1.08);
+      transform: scale(1.025);
     }
 
     .sun-map-marker__day::before {
@@ -792,7 +803,7 @@ function injectMarkerStyles() {
     .sun-map-marker__core {
       align-items: center;
       background: var(--marker-color);
-      border: 3px solid #ffffff;
+      border: 2px solid #ffffff;
       border-radius: 999px;
       box-shadow: 0 10px 24px var(--marker-shadow);
       color: #ffffff;
@@ -808,8 +819,9 @@ function injectMarkerStyles() {
 
     .sun-map-marker__label {
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
+      letter-spacing: 0;
       line-height: 1;
     }
 
