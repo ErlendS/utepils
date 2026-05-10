@@ -42,6 +42,12 @@ type SunWindow = { end: number; start: number }
 
 type SunAngleSample = { azimuthDeg: number; minute: number }
 
+type MarkerDragHandle = HTMLElement & {
+  hasPointerCapture(pointerId: number): boolean
+  releasePointerCapture(pointerId: number): void
+  setPointerCapture(pointerId: number): void
+}
+
 type PlacesLibraryWithAutocompleteElement = google.maps.PlacesLibrary & {
   PlaceAutocompleteElement: typeof google.maps.places.PlaceAutocompleteElement
 }
@@ -65,6 +71,7 @@ let selectPointController: AbortController | undefined
 let suppressMapClickUntil = 0
 let sunAngleDragAzimuth: number | undefined
 let sunAngleDragMinute: number | undefined
+let markerDragMapOptions: google.maps.MapOptions | undefined
 
 const els = {
   dot: document.querySelector<HTMLElement>('#status-dot')!,
@@ -299,9 +306,9 @@ function updateForCurrentTime() {
   marker?.setSunAngle(reading.azimuthDeg)
   setStatus(
     reading.inSun ? 'In sun' : 'In shade',
-    `${formatTime(time)} - sun altitude ${toDegrees(reading.altitude).toFixed(1)} deg, horizon ${toDegrees(
+    `${formatTime(time)} - sun altitude ${toDegrees(reading.altitude).toFixed(1)}°, horizon ${toDegrees(
       reading.horizonAltitude,
-    ).toFixed(1)} deg`,
+    ).toFixed(1)}°`,
     reading.inSun ? 'sun' : 'shade',
   )
 }
@@ -543,55 +550,11 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
   `
 
   let day = element.querySelector<HTMLElement>('.sun-map-marker__day')!
+  let core = element.querySelector<HTMLElement>('.sun-map-marker__core')!
   let label = element.querySelector<HTMLElement>('.sun-map-marker__label')!
   let renderedSunAngle: number | undefined
   day.title = 'Drag to change time'
-
-  day.addEventListener('pointerdown', (event) => {
-    if (!selectedProfile) return
-    suppressMapClickAfterMarkerDrag()
-    sunAngleDragAzimuth = compassAngleFromPointer(event, element)
-    sunAngleDragMinute = Number(els.slider.value)
-    event.preventDefault()
-    event.stopPropagation()
-    day.setPointerCapture(event.pointerId)
-    element.dataset.dragging = 'true'
-    updateTimeFromSunAngle(compassAngleFromPointer(event, element))
-  })
-
-  day.addEventListener('pointermove', (event) => {
-    if (element.dataset.dragging !== 'true' || !day.hasPointerCapture(event.pointerId)) return
-    suppressMapClickAfterMarkerDrag()
-    event.preventDefault()
-    event.stopPropagation()
-    updateTimeFromSunAngle(compassAngleFromPointer(event, element))
-  })
-
-  day.addEventListener('pointerup', (event) => {
-    suppressMapClickAfterMarkerDrag()
-    event.preventDefault()
-    event.stopPropagation()
-    if (day.hasPointerCapture(event.pointerId)) day.releasePointerCapture(event.pointerId)
-    element.dataset.dragging = 'false'
-    sunAngleDragAzimuth = undefined
-    sunAngleDragMinute = undefined
-  })
-
-  day.addEventListener('pointercancel', (event) => {
-    suppressMapClickAfterMarkerDrag()
-    event.preventDefault()
-    event.stopPropagation()
-    if (day.hasPointerCapture(event.pointerId)) day.releasePointerCapture(event.pointerId)
-    element.dataset.dragging = 'false'
-    sunAngleDragAzimuth = undefined
-    sunAngleDragMinute = undefined
-  })
-
-  day.addEventListener('click', (event) => {
-    suppressMapClickAfterMarkerDrag()
-    event.preventDefault()
-    event.stopPropagation()
-  })
+  core.title = 'Drag to move location'
 
   class MarkerOverlay extends google.maps.OverlayView {
     override onAdd() {
@@ -649,7 +612,149 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
 
   let overlay = new MarkerOverlay() as SunMarkerOverlay
   overlay.setMode(mode)
+  bindSunAngleDragHandle(day, element)
+  bindMarkerPositionDragHandle(core, element, overlay)
   return overlay
+}
+
+function bindSunAngleDragHandle(handle: MarkerDragHandle, element: HTMLElement) {
+  handle.addEventListener('pointerdown', (event) => {
+    if (!selectedProfile) return
+    suspendMapGesturesForMarkerDrag()
+    suppressMapClickAfterMarkerDrag()
+    sunAngleDragAzimuth = compassAngleFromPointer(event, element)
+    sunAngleDragMinute = Number(els.slider.value)
+    event.preventDefault()
+    event.stopPropagation()
+    handle.setPointerCapture(event.pointerId)
+    element.dataset.dragging = 'time'
+    updateTimeFromSunAngle(compassAngleFromPointer(event, element))
+  })
+
+  handle.addEventListener('pointermove', (event) => {
+    if (element.dataset.dragging !== 'time' || !handle.hasPointerCapture(event.pointerId)) return
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    updateTimeFromSunAngle(compassAngleFromPointer(event, element))
+  })
+
+  handle.addEventListener('pointerup', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
+    finishSunAngleDrag(element)
+  })
+
+  handle.addEventListener('pointercancel', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
+    finishSunAngleDrag(element)
+  })
+
+  handle.addEventListener('click', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+  })
+
+  handle.addEventListener('touchstart', preventMarkerTouchGesture, { passive: false })
+  handle.addEventListener('touchmove', preventMarkerTouchGesture, { passive: false })
+}
+
+function finishSunAngleDrag(element: HTMLElement) {
+  restoreMapGesturesAfterMarkerDrag()
+  element.dataset.dragging = 'none'
+  sunAngleDragAzimuth = undefined
+  sunAngleDragMinute = undefined
+}
+
+function bindMarkerPositionDragHandle(handle: MarkerDragHandle, element: HTMLElement, overlay: SunMarkerOverlay) {
+  let dragStartPointer: { x: number; y: number } | undefined
+  let dragStartPixel: google.maps.Point | undefined
+  let didMove = false
+  let nextPoint: google.maps.LatLngLiteral | undefined
+
+  handle.addEventListener('pointerdown', (event) => {
+    if (!selectedPoint) return
+    let projection = overlay.getProjection()
+    let startPixel = projection?.fromLatLngToDivPixel(new google.maps.LatLng(selectedPoint))
+    if (!startPixel) return
+
+    suspendMapGesturesForMarkerDrag()
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    handle.setPointerCapture(event.pointerId)
+    element.dataset.dragging = 'place'
+    dragStartPointer = { x: event.clientX, y: event.clientY }
+    dragStartPixel = startPixel
+    didMove = false
+    nextPoint = selectedPoint
+  })
+
+  handle.addEventListener('pointermove', (event) => {
+    if (element.dataset.dragging !== 'place' || !handle.hasPointerCapture(event.pointerId)) return
+    if (!dragStartPointer || !dragStartPixel) return
+
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+
+    let dx = event.clientX - dragStartPointer.x
+    let dy = event.clientY - dragStartPointer.y
+    if (!didMove && Math.hypot(dx, dy) < 4) return
+    didMove = true
+
+    let projection = overlay.getProjection()
+    let latLng = projection?.fromDivPixelToLatLng(new google.maps.Point(dragStartPixel.x + dx, dragStartPixel.y + dy))
+    if (!latLng) return
+
+    nextPoint = latLng.toJSON()
+    overlay.setPosition(nextPoint)
+    els.point.textContent = `${nextPoint.lat.toFixed(6)}, ${nextPoint.lng.toFixed(6)}`
+  })
+
+  handle.addEventListener('pointerup', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
+    let droppedPoint = nextPoint
+    let shouldSelectDroppedPoint = didMove
+    finishMarkerPositionDrag(element)
+    if (droppedPoint && shouldSelectDroppedPoint) void selectPoint(droppedPoint)
+  })
+
+  handle.addEventListener('pointercancel', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
+    finishMarkerPositionDrag(element)
+    if (selectedPoint) overlay.setPosition(selectedPoint)
+  })
+
+  handle.addEventListener('click', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+  })
+
+  handle.addEventListener('touchstart', preventMarkerTouchGesture, { passive: false })
+  handle.addEventListener('touchmove', preventMarkerTouchGesture, { passive: false })
+
+  function finishMarkerPositionDrag(draggedElement: HTMLElement) {
+    restoreMapGesturesAfterMarkerDrag()
+    draggedElement.dataset.dragging = 'none'
+    dragStartPointer = undefined
+    dragStartPixel = undefined
+    didMove = false
+    nextPoint = undefined
+  }
 }
 
 function compassAngleFromPointer(event: PointerEvent, element: HTMLElement) {
@@ -657,6 +762,31 @@ function compassAngleFromPointer(event: PointerEvent, element: HTMLElement) {
   let x = event.clientX - (rect.left + rect.width / 2)
   let y = event.clientY - (rect.top + rect.height / 2)
   return (toDegrees(Math.atan2(x, -y)) + 360) % 360
+}
+
+function preventMarkerTouchGesture(event: TouchEvent) {
+  if (!selectedProfile) return
+  suppressMapClickAfterMarkerDrag()
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function suspendMapGesturesForMarkerDrag() {
+  if (markerDragMapOptions) return
+  markerDragMapOptions = {
+    draggable: map.get('draggable') as boolean | undefined,
+    gestureHandling: map.get('gestureHandling') as google.maps.MapOptions['gestureHandling'],
+  }
+  map.setOptions({ draggable: false, gestureHandling: 'none' })
+}
+
+function restoreMapGesturesAfterMarkerDrag() {
+  if (!markerDragMapOptions) return
+  map.setOptions({
+    draggable: markerDragMapOptions.draggable ?? true,
+    gestureHandling: markerDragMapOptions.gestureHandling ?? 'auto',
+  })
+  markerDragMapOptions = undefined
 }
 
 function suppressMapClickAfterMarkerDrag() {
@@ -710,12 +840,12 @@ function injectMarkerStyles() {
       pointer-events: auto;
     }
 
-    .sun-map-marker[data-dragging="true"] .sun-map-marker__day {
+    .sun-map-marker[data-dragging="time"] .sun-map-marker__day {
       cursor: grabbing;
     }
 
     .sun-map-marker[data-has-day="true"] .sun-map-marker__day:hover,
-    .sun-map-marker[data-dragging="true"] .sun-map-marker__day {
+    .sun-map-marker[data-dragging="time"] .sun-map-marker__day {
       box-shadow:
         inset 0 0 0 2px rgba(23, 32, 29, 0.22),
         inset 0 0 0 999px rgba(23, 32, 29, 0.07),
@@ -811,10 +941,30 @@ function injectMarkerStyles() {
       height: 44px;
       justify-content: center;
       left: 50%;
+      pointer-events: none;
       position: absolute;
       top: 50%;
       transform: translate(-50%, -50%);
+      transition: box-shadow 160ms ease, transform 160ms ease;
+      touch-action: none;
       width: 44px;
+    }
+
+    .sun-map-marker[data-has-day="true"] .sun-map-marker__core {
+      cursor: grab;
+      pointer-events: auto;
+    }
+
+    .sun-map-marker[data-dragging="place"] .sun-map-marker__core {
+      cursor: grabbing;
+    }
+
+    .sun-map-marker[data-has-day="true"] .sun-map-marker__core:hover,
+    .sun-map-marker[data-dragging="place"] .sun-map-marker__core {
+      box-shadow:
+        0 0 0 4px rgba(255, 255, 255, 0.5),
+        0 13px 28px var(--marker-shadow);
+      transform: translate(-50%, -50%) scale(1.08);
     }
 
     .sun-map-marker__label {
