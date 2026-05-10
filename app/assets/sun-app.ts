@@ -29,8 +29,15 @@ type ConfigResponse = {
   solarRadiusMeters: number
 }
 
+type MarkerMode = 'error' | 'loading' | 'shade' | 'sun'
+
+type SunMarkerOverlay = google.maps.OverlayView & {
+  setMode(mode: MarkerMode): void
+  setPosition(point: google.maps.LatLngLiteral): void
+}
+
 let map: google.maps.Map
-let marker: google.maps.Marker | undefined
+let marker: SunMarkerOverlay | undefined
 let selectedProfile: HorizonResponse | undefined
 let selectedPoint: google.maps.LatLngLiteral | undefined
 
@@ -44,11 +51,12 @@ const els = {
   slider: document.querySelector<HTMLInputElement>('#time-slider')!,
   time: document.querySelector<HTMLElement>('#time-output')!,
   toast: document.querySelector<HTMLElement>('#map-toast')!,
+  useLocation: document.querySelector<HTMLButtonElement>('#use-location-button')!,
   windows: document.querySelector<HTMLElement>('#sun-windows')!,
 }
 
 bootstrap().catch((error) => {
-  showToast(error instanceof Error ? error.message : 'Unable to start the app.')
+  showErrorToast(error instanceof Error ? error.message : 'Unable to start the app.')
 })
 
 async function bootstrap() {
@@ -72,9 +80,69 @@ async function bootstrap() {
     if (!event.latLng) return
     void selectPoint(event.latLng.toJSON())
   })
+  els.useLocation.addEventListener('click', () => {
+    void useCurrentLocation()
+  })
 
-  showToast('Click the map to choose a sun/shade spot.')
   updateForCurrentTime()
+}
+
+async function useCurrentLocation() {
+  if (!navigator.geolocation) {
+    let message = 'Location access is not available in this browser.'
+    setStatus('Location unavailable', message, 'error')
+    showErrorToast(message)
+    return
+  }
+
+  let previousLabel = els.useLocation.textContent ?? 'Use my location'
+  els.useLocation.disabled = true
+  els.useLocation.textContent = 'Finding location'
+  setStatus('Finding location', 'Waiting for permission from your browser.', 'loading')
+  hideToast()
+
+  try {
+    let position = await getCurrentPosition()
+    let point = {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+    }
+
+    map.panTo(point)
+    map.setZoom(Math.max(map.getZoom() ?? 0, 16))
+    await selectPoint(point)
+  } catch (error) {
+    let message = geolocationErrorMessage(error)
+    setStatus('Location failed', message, 'error')
+    showErrorToast(message)
+  } finally {
+    els.useLocation.disabled = false
+    els.useLocation.textContent = previousLabel
+  }
+}
+
+function getCurrentPosition() {
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      maximumAge: 60_000,
+      timeout: 10_000,
+    })
+  })
+}
+
+function geolocationErrorMessage(error: unknown) {
+  if (isGeolocationError(error)) {
+    if (error.code === 1) return 'Location permission was denied.'
+    if (error.code === 2) return 'Your location could not be determined.'
+    if (error.code === 3) return 'Location lookup timed out.'
+  }
+
+  return 'Unable to get your location.'
+}
+
+function isGeolocationError(error: unknown): error is GeolocationPositionError {
+  return Boolean(error && typeof error === 'object' && 'code' in error && typeof error.code === 'number')
 }
 
 async function selectPoint(point: google.maps.LatLngLiteral) {
@@ -94,10 +162,11 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
       : 'DSM loaded'
     updateSunWindows()
     updateForCurrentTime()
-    showToast('Profile ready. Scrub the time slider.')
   } catch (error) {
     setMarker(point, 'error')
-    setStatus('Profile failed', error instanceof Error ? error.message : 'Profile request failed.', 'error')
+    let message = error instanceof Error ? error.message : 'Profile request failed.'
+    setStatus('Profile failed', message, 'error')
+    showErrorToast(message)
     els.windows.innerHTML = ''
   }
 }
@@ -170,10 +239,10 @@ function setLoading(point: google.maps.LatLngLiteral) {
   els.point.textContent = `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`
   els.dsm.textContent = 'Fetching Google Solar DSM'
   setStatus('Computing profile', 'Raymarching 3D buildings and tree canopy around this point.', 'loading')
-  showToast('Fetching DSM and building horizon profile...')
+  hideToast()
 }
 
-function setStatus(label: string, detail: string, mode: 'error' | 'loading' | 'shade' | 'sun') {
+function setStatus(label: string, detail: string, mode: MarkerMode) {
   els.label.textContent = label
   els.detail.textContent = detail
   let color = mode === 'sun' ? '#f5b93f' : mode === 'shade' ? '#53616f' : mode === 'error' ? '#c94b4b' : '#56a0c8'
@@ -181,24 +250,288 @@ function setStatus(label: string, detail: string, mode: 'error' | 'loading' | 's
   els.dot.style.boxShadow = `0 0 0 6px ${hexToRgba(color, 0.16)}`
 }
 
-function setMarker(point: google.maps.LatLngLiteral, mode: 'error' | 'loading' | 'shade' | 'sun') {
-  let color = mode === 'sun' ? '#f5b93f' : mode === 'shade' ? '#53616f' : mode === 'error' ? '#c94b4b' : '#56a0c8'
-  let label = mode === 'sun' ? 'SUN' : mode === 'shade' ? 'SHADE' : mode === 'error' ? 'ERR' : '...'
-
+function setMarker(point: google.maps.LatLngLiteral, mode: MarkerMode) {
   if (!marker) {
-    marker = new google.maps.Marker({ map, position: point })
+    injectMarkerStyles()
+    marker = createSunMarkerOverlay(point, mode)
+    marker.setMap(map)
+    return
   }
 
   marker.setPosition(point)
-  marker.setLabel({ color: '#ffffff', fontSize: '11px', fontWeight: '800', text: label })
-  marker.setIcon({
-    fillColor: color,
-    fillOpacity: 1,
-    path: google.maps.SymbolPath.CIRCLE,
-    scale: 22,
-    strokeColor: '#ffffff',
-    strokeWeight: 3,
-  })
+  marker.setMode(mode)
+}
+
+function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMode): SunMarkerOverlay {
+  let position = point
+  let element = document.createElement('div')
+  element.className = 'sun-map-marker'
+  element.setAttribute('aria-hidden', 'true')
+  element.innerHTML = `
+    <div class="sun-map-marker__rays">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <span class="sun-map-marker__cloud sun-map-marker__cloud--one"></span>
+    <span class="sun-map-marker__cloud sun-map-marker__cloud--two"></span>
+    <span class="sun-map-marker__cloud sun-map-marker__cloud--three"></span>
+    <div class="sun-map-marker__core">
+      <span class="sun-map-marker__label"></span>
+    </div>
+  `
+
+  let label = element.querySelector<HTMLElement>('.sun-map-marker__label')!
+
+  class MarkerOverlay extends google.maps.OverlayView {
+    override onAdd() {
+      this.getPanes()?.overlayMouseTarget.append(element)
+    }
+
+    override draw() {
+      let projection = this.getProjection()
+      if (!projection) return
+
+      let pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng(position))
+      if (!pixel) return
+
+      element.style.left = `${pixel.x}px`
+      element.style.top = `${pixel.y}px`
+      element.style.zIndex = String(Math.round(pixel.y))
+    }
+
+    override onRemove() {
+      element.remove()
+    }
+
+    setMode(nextMode: MarkerMode) {
+      element.dataset.mode = nextMode
+      label.textContent = markerLabelForMode(nextMode)
+    }
+
+    setPosition(nextPoint: google.maps.LatLngLiteral) {
+      position = nextPoint
+      this.draw()
+    }
+  }
+
+  let overlay = new MarkerOverlay() as SunMarkerOverlay
+  overlay.setMode(mode)
+  return overlay
+}
+
+function markerLabelForMode(mode: MarkerMode) {
+  return mode === 'sun' ? 'SUN' : mode === 'shade' ? 'SHADE' : mode === 'error' ? 'ERR' : ''
+}
+
+function injectMarkerStyles() {
+  if (document.querySelector('#sun-map-marker-style')) return
+
+  let style = document.createElement('style')
+  style.id = 'sun-map-marker-style'
+  style.textContent = `
+    .sun-map-marker {
+      --marker-color: #56a0c8;
+      --marker-shadow: rgba(86, 160, 200, 0.28);
+      height: 96px;
+      left: 0;
+      pointer-events: none;
+      position: absolute;
+      top: 0;
+      transform: translate(-50%, -50%);
+      width: 112px;
+    }
+
+    .sun-map-marker[data-mode="sun"] {
+      --marker-color: #f5b93f;
+      --marker-shadow: rgba(245, 185, 63, 0.3);
+    }
+
+    .sun-map-marker[data-mode="shade"] {
+      --marker-color: #53616f;
+      --marker-shadow: rgba(83, 97, 111, 0.26);
+    }
+
+    .sun-map-marker[data-mode="error"] {
+      --marker-color: #c94b4b;
+      --marker-shadow: rgba(201, 75, 75, 0.26);
+    }
+
+    .sun-map-marker__core {
+      align-items: center;
+      background: var(--marker-color);
+      border: 3px solid #ffffff;
+      border-radius: 999px;
+      box-shadow: 0 10px 24px var(--marker-shadow);
+      color: #ffffff;
+      display: flex;
+      height: 44px;
+      justify-content: center;
+      left: 50%;
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+    }
+
+    .sun-map-marker__label {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .sun-map-marker__rays,
+    .sun-map-marker__cloud {
+      opacity: 0;
+      position: absolute;
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__core::before {
+      background: #ffffff;
+      border-radius: 999px;
+      box-shadow: 0 -10px 0 -3px #ffffff, 0 10px 0 -3px #ffffff, 10px 0 0 -3px #ffffff, -10px 0 0 -3px #ffffff;
+      content: "";
+      height: 16px;
+      width: 16px;
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__core {
+      animation: sun-marker-bob 980ms ease-in-out infinite;
+      background: #f5b93f;
+      box-shadow: 0 12px 28px rgba(245, 185, 63, 0.32);
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__rays {
+      animation: sun-marker-turn 3.2s linear infinite;
+      height: 78px;
+      left: 17px;
+      opacity: 1;
+      top: 9px;
+      width: 78px;
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__rays span {
+      background: linear-gradient(90deg, rgba(245, 185, 63, 0), rgba(245, 185, 63, 0.38), rgba(245, 185, 63, 0));
+      border-radius: 999px;
+      height: 13px;
+      left: 0;
+      position: absolute;
+      top: 32px;
+      width: 78px;
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__rays span:nth-child(2) {
+      transform: rotate(60deg);
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__rays span:nth-child(3) {
+      transform: rotate(120deg);
+    }
+
+    .sun-map-marker__cloud {
+      --cloud-pop-scale: 1;
+      --cloud-scale: 0.82;
+      background: #ffffff;
+      border-radius: 999px;
+      box-shadow: 0 8px 18px rgba(45, 70, 78, 0.16);
+      height: 15px;
+      width: 36px;
+    }
+
+    .sun-map-marker__cloud::before,
+    .sun-map-marker__cloud::after {
+      background: #ffffff;
+      border-radius: 999px;
+      content: "";
+      position: absolute;
+    }
+
+    .sun-map-marker__cloud::before {
+      height: 18px;
+      left: 7px;
+      top: -8px;
+      width: 18px;
+    }
+
+    .sun-map-marker__cloud::after {
+      height: 13px;
+      right: 7px;
+      top: -5px;
+      width: 13px;
+    }
+
+    .sun-map-marker__cloud--one {
+      left: 10px;
+      top: 27px;
+      transform: scale(var(--cloud-scale));
+    }
+
+    .sun-map-marker__cloud--two {
+      --cloud-pop-scale: 0.9;
+      --cloud-scale: 0.72;
+      right: 7px;
+      top: 30px;
+      transform: scale(var(--cloud-scale));
+    }
+
+    .sun-map-marker__cloud--three {
+      --cloud-pop-scale: 0.82;
+      --cloud-scale: 0.64;
+      bottom: 18px;
+      left: 37px;
+      transform: scale(var(--cloud-scale));
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__cloud {
+      animation: sun-marker-cloud 1.9s ease-in-out infinite;
+      opacity: 0.96;
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__cloud--two {
+      animation-delay: 260ms;
+    }
+
+    .sun-map-marker[data-mode="loading"] .sun-map-marker__cloud--three {
+      animation-delay: 520ms;
+    }
+
+    @keyframes sun-marker-bob {
+      0%, 100% { transform: translate(-50%, -52%); }
+      50% { transform: translate(-50%, -44%); }
+    }
+
+    @keyframes sun-marker-turn {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes sun-marker-cloud {
+      0%, 100% {
+        opacity: 0;
+        transform: translate(0, 5px) scale(var(--cloud-scale));
+      }
+      18%, 76% {
+        opacity: 0.96;
+      }
+      48% {
+        transform: translate(0, -2px) scale(var(--cloud-pop-scale));
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sun-map-marker[data-mode="loading"] .sun-map-marker__core,
+      .sun-map-marker[data-mode="loading"] .sun-map-marker__rays,
+      .sun-map-marker[data-mode="loading"] .sun-map-marker__cloud {
+        animation: none;
+      }
+
+      .sun-map-marker[data-mode="loading"] .sun-map-marker__rays,
+      .sun-map-marker[data-mode="loading"] .sun-map-marker__cloud {
+        opacity: 1;
+      }
+    }
+  `
+  document.head.append(style)
 }
 
 function setSliderToNow() {
@@ -249,9 +582,13 @@ async function fetchJson<T>(url: string): Promise<T> {
   return body as T
 }
 
-function showToast(message: string) {
+function showErrorToast(message: string) {
   els.toast.textContent = message
   els.toast.style.opacity = '1'
+}
+
+function hideToast() {
+  els.toast.style.opacity = '0'
 }
 
 function toDegrees(radians: number) {

@@ -46,14 +46,17 @@ export function SunPage() {
         <div id="app-shell" mix={shellStyle}>
           <aside mix={panelStyle}>
             <div>
-              <p mix={eyebrowStyle}>Oslo clear-sky sun check</p>
               <h1 mix={titleStyle}>Is this spot in sun right now?</h1>
               <p mix={copyStyle}>
-                Click on any spot. The server builds a 3D obstruction horizon
-                from Google Solar DSM data; the time scrubber then updates
-                instantly in the browser.
+                Pick a spot on the map to see when it gets direct sunlight
+                today. Use the time slider to check how the sun changes through
+                the day.
               </p>
             </div>
+
+            <button id="use-location-button" type="button" mix={locationButtonStyle}>
+              Use my location
+            </button>
 
             <section mix={statusCardStyle} aria-live="polite">
               <div mix={statusHeaderStyle}>
@@ -103,9 +106,7 @@ export function SunPage() {
 
           <main mix={mapWrapStyle}>
             <div id="map" mix={mapStyle}></div>
-            <div id="map-toast" mix={toastStyle}>
-              Loading map
-            </div>
+            <div id="map-toast" mix={toastStyle} role="alert"></div>
           </main>
         </div>
       </body>
@@ -141,16 +142,6 @@ const panelStyle = css({
   padding: "28px",
 });
 
-const eyebrowStyle = css({
-  color: "#66726a",
-  fontSize: "12px",
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  lineHeight: 1.2,
-  margin: "0 0 12px",
-  textTransform: "uppercase",
-});
-
 const titleStyle = css({
   fontSize: "32px",
   lineHeight: 1.08,
@@ -163,6 +154,37 @@ const copyStyle = css({
   fontSize: "15px",
   lineHeight: 1.55,
   margin: "14px 0 0",
+});
+
+const locationButtonStyle = css({
+  alignItems: "center",
+  background: "#17201d",
+  border: "1px solid #17201d",
+  borderRadius: "8px",
+  color: "#f8faf6",
+  cursor: "pointer",
+  display: "inline-flex",
+  font: "inherit",
+  fontSize: "14px",
+  fontWeight: 800,
+  justifyContent: "center",
+  minHeight: "44px",
+  padding: "0 16px",
+  transition:
+    "background 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease",
+  width: "100%",
+  "&:hover:not(:disabled)": {
+    background: "#2a3832",
+    borderColor: "#2a3832",
+  },
+  "&:focus-visible": {
+    outline: "3px solid rgba(86, 160, 200, 0.4)",
+    outlineOffset: "2px",
+  },
+  "&:disabled": {
+    cursor: "wait",
+    opacity: 0.68,
+  },
 });
 
 const statusCardStyle = css({
@@ -277,7 +299,9 @@ const toastStyle = css({
   fontSize: "13px",
   left: "24px",
   maxWidth: "min(420px, calc(100vw - 48px))",
+  opacity: 0,
   padding: "12px 14px",
+  pointerEvents: "none",
   position: "absolute",
   transition: "opacity 160ms ease",
 });
