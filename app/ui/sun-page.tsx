@@ -332,6 +332,9 @@ const factsStyle = css({
     margin: 0,
     textTransform: "uppercase",
   },
+  "& dt[title]": {
+    cursor: "help",
+  },
   "& dd": {
     color: "#222d28",
     fontSize: "13px",

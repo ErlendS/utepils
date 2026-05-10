@@ -486,12 +486,14 @@ function injectMarkerStyles() {
     }
 
     .sun-map-marker[data-mode="loading"] .sun-map-marker__core::before {
-      background: #ffffff;
+      animation: sun-marker-center-spin 760ms linear infinite;
+      border: 3px solid rgba(255, 232, 176, 0.58);
       border-radius: 999px;
-      box-shadow: 0 -10px 0 -3px #ffffff, 0 10px 0 -3px #ffffff, 10px 0 0 -3px #ffffff, -10px 0 0 -3px #ffffff;
+      border-top-color: #ffffff;
+      box-shadow: 0 0 0 1px rgba(255, 198, 76, 0.28);
       content: "";
-      height: 16px;
-      width: 16px;
+      height: 18px;
+      width: 18px;
     }
 
     .sun-map-marker[data-mode="loading"] .sun-map-marker__core {
@@ -603,6 +605,10 @@ function injectMarkerStyles() {
       to { transform: rotate(360deg); }
     }
 
+    @keyframes sun-marker-center-spin {
+      to { transform: rotate(360deg); }
+    }
+
     @keyframes sun-marker-cloud {
       0%, 100% {
         opacity: 0;
@@ -618,6 +624,7 @@ function injectMarkerStyles() {
 
     @media (prefers-reduced-motion: reduce) {
       .sun-map-marker[data-mode="loading"] .sun-map-marker__core,
+      .sun-map-marker[data-mode="loading"] .sun-map-marker__core::before,
       .sun-map-marker[data-mode="loading"] .sun-map-marker__rays,
       .sun-map-marker[data-mode="loading"] .sun-map-marker__cloud {
         animation: none;
