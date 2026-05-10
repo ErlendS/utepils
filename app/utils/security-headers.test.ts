@@ -17,7 +17,7 @@ test('content security policy allows the Google Maps browser API', () => {
     'https://mapsresources-pa.googleapis.com',
     'data:',
   ])
-  assert.deepEqual(policy.get('frame-src'), ['https://google.com', 'https://*.google.com'])
+  assert.deepEqual(policy.get('frame-src'), ['https://www.google.com', 'https://maps.google.com'])
   assert.deepEqual(policy.get('font-src'), ["'self'", 'https://fonts.gstatic.com'])
   assert.ok(policy.get('img-src')?.includes('https://*.ggpht.com'))
   assert.ok(policy.get('img-src')?.includes('https://*.googleusercontent.com'))
@@ -44,6 +44,8 @@ test('setSecurityHeaders applies baseline browser security headers', () => {
 
   assert.equal(headers.get('Content-Security-Policy'), CONTENT_SECURITY_POLICY)
   assert.equal(headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin')
+  assert.equal(headers.get('Strict-Transport-Security'), 'max-age=63072000; includeSubDomains')
+  assert.equal(headers.get('Permissions-Policy'), 'camera=(), microphone=(), payment=(), usb=(), gyroscope=(), accelerometer=()')
   assert.equal(headers.get('X-Content-Type-Options'), 'nosniff')
 })
 

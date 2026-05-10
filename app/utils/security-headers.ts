@@ -30,12 +30,14 @@ export const CONTENT_SECURITY_POLICY = [
   `img-src 'self' data: ${GOOGLE_MAPS_IMAGE_SOURCES.join(" ")}`,
   `connect-src 'self' ${GOOGLE_MAPS_CONNECT_SOURCES.join(" ")} data:`,
   "font-src 'self' https://fonts.gstatic.com",
-  "frame-src https://google.com https://*.google.com",
+  "frame-src https://www.google.com https://maps.google.com",
   "worker-src 'self'",
 ].join("; ");
 
 export function setSecurityHeaders(headers: Headers) {
   headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), payment=(), usb=(), gyroscope=(), accelerometer=()");
   headers.set("X-Content-Type-Options", "nosniff");
 }
