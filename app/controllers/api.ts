@@ -4,6 +4,7 @@ import type { routes } from '../routes.ts'
 import { computeHorizonProfile } from '../services/horizon.ts'
 import { getDsmForPoint } from '../services/solar.ts'
 import { LruMap } from '../utils/lru-map.ts'
+import { checkRateLimit, getClientIp } from '../utils/rate-limit.ts'
 
 const OSLO = { lat: 59.9139, lng: 10.7522 }
 const SOLAR_RADIUS_METERS = 300
@@ -35,6 +36,11 @@ export const apiConfig: BuildAction<'GET', typeof routes.apiConfig> = {
 
 export const poiProfile: BuildAction<'GET', typeof routes.apiPoiProfile> = {
   handler({ request }) {
+    let { allowed, retryAfterSeconds } = checkRateLimit(getClientIp(request))
+    if (!allowed) {
+      return json({ error: 'Too many requests.' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } })
+    }
+
     let url = new URL(request.url)
     let lat = Number(url.searchParams.get('lat'))
     let lng = Number(url.searchParams.get('lng'))
