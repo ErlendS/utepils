@@ -31,6 +31,7 @@ COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.
 COPY --chown=node:node app ./app
 COPY --chown=node:node public ./public
 
+RUN chown node:node /app
 USER node
 
 EXPOSE 3000
