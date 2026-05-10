@@ -32,9 +32,13 @@ type ConfigResponse = {
 type MarkerMode = 'error' | 'loading' | 'shade' | 'sun'
 
 type SunMarkerOverlay = google.maps.OverlayView & {
+  setDayFill(fill?: string): void
   setMode(mode: MarkerMode): void
   setPosition(point: google.maps.LatLngLiteral): void
+  setSunAngle(azimuthDeg?: number): void
 }
+
+type SunWindow = { end: number; start: number }
 
 type PlacesLibraryWithAutocompleteElement = google.maps.PlacesLibrary & {
   PlaceAutocompleteElement: typeof google.maps.places.PlaceAutocompleteElement
@@ -244,6 +248,8 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
   selectedPoint = point
   selectedProfile = undefined
   setMarker(point, 'loading')
+  marker?.setDayFill()
+  marker?.setSunAngle()
   setLoading(point)
 
   try {
@@ -261,6 +267,8 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return
     setMarker(point, 'error')
+    marker?.setDayFill()
+    marker?.setSunAngle()
     let message = error instanceof Error ? error.message : 'Profile request failed.'
     let isCoverageError = error instanceof HttpError && error.status === 404
     setStatus(isCoverageError ? 'Outside coverage' : 'Profile failed', message, 'error')
@@ -278,6 +286,7 @@ function updateForCurrentTime() {
 
   let reading = readSun(selectedProfile, time)
   setMarker(selectedPoint, reading.inSun ? 'sun' : 'shade')
+  marker?.setSunAngle(reading.azimuthDeg)
   setStatus(
     reading.inSun ? 'In sun' : 'In shade',
     `${formatTime(time)} - sun altitude ${toDegrees(reading.altitude).toFixed(1)} deg, horizon ${toDegrees(
@@ -304,19 +313,7 @@ function readSun(profile: HorizonResponse, time: Date) {
 function updateSunWindows() {
   if (!selectedProfile) return
 
-  let windows: Array<{ end: number; start: number }> = []
-  let current: { end: number; start: number } | undefined
-
-  for (let minute = 0; minute < 1440; minute += 2) {
-    let inSun = readSun(selectedProfile, dateForMinutes(minute)).inSun
-    if (inSun && !current) current = { start: minute, end: minute + 2 }
-    if (inSun && current) current.end = minute + 2
-    if (!inSun && current) {
-      windows.push(current)
-      current = undefined
-    }
-  }
-  if (current) windows.push(current)
+  let windows = getSunWindows(selectedProfile)
 
   els.windows.innerHTML = ''
   for (let windowRange of windows) {
@@ -331,6 +328,101 @@ function updateSunWindows() {
     segment.style.width = `${((windowRange.end - windowRange.start) / 1440) * 100}%`
     els.windows.append(segment)
   }
+
+  marker?.setDayFill(buildDayFill())
+}
+
+function getSunWindows(profile: HorizonResponse): SunWindow[] {
+  let windows: SunWindow[] = []
+  let current: { end: number; start: number } | undefined
+
+  for (let minute = 0; minute < 1440; minute += 2) {
+    let inSun = readSun(profile, dateForMinutes(minute)).inSun
+    if (inSun && !current) current = { start: minute, end: minute + 2 }
+    if (inSun && current) current.end = minute + 2
+    if (!inSun && current) {
+      windows.push(current)
+      current = undefined
+    }
+  }
+  if (current) windows.push(current)
+
+  return windows
+}
+
+function buildDayFill() {
+  if (!selectedProfile) return undefined
+
+  return buildSunBeamFill(selectedProfile)
+}
+
+function buildSunBeamFill(profile: HorizonResponse) {
+  let shadowFill = 'rgba(83, 97, 111, 0.28)'
+  let sunFill = 'rgba(245, 185, 63, 0.42)'
+  let sunBins = Array.from({ length: 360 }, () => false)
+
+  for (let minute = 0; minute < 1440; minute += 2) {
+    let reading = readSun(profile, dateForMinutes(minute))
+    if (!reading.inSun) continue
+
+    let center = Math.round(reading.azimuthDeg) % 360
+    for (let offset = -2; offset <= 2; offset++) {
+      sunBins[(center + offset + 360) % 360] = true
+    }
+  }
+
+  if (sunBins.every(Boolean)) return `conic-gradient(from 0deg, ${sunFill} 0deg 360deg)`
+  if (!sunBins.some(Boolean)) return `conic-gradient(from 0deg, ${shadowFill} 0deg 360deg)`
+
+  let ranges = getAngleRanges(sunBins)
+  let stops: string[] = []
+  let cursor = 0
+
+  for (let range of ranges) {
+    let start = clampAngle(range.start)
+    let end = clampAngle(range.end)
+    if (start > cursor) stops.push(`${shadowFill} ${cursor}deg ${start}deg`)
+    if (end > start) stops.push(`${sunFill} ${start}deg ${end}deg`)
+    cursor = Math.max(cursor, end)
+  }
+
+  if (cursor < 360) stops.push(`${shadowFill} ${cursor}deg 360deg`)
+  if (stops.length === 0) stops.push(`${shadowFill} 0deg 360deg`)
+
+  return `conic-gradient(from 0deg, ${stops.join(', ')})`
+}
+
+function getAngleRanges(sunBins: boolean[]) {
+  let firstShadow = sunBins.findIndex((isSun) => !isSun)
+  let startIndex = firstShadow === -1 ? 0 : (firstShadow + 1) % sunBins.length
+  let ranges: SunWindow[] = []
+  let current: SunWindow | undefined
+
+  for (let step = 0; step < sunBins.length; step++) {
+    let angle = (startIndex + step) % sunBins.length
+    let normalizedAngle = step + startIndex >= sunBins.length ? angle + sunBins.length : angle
+    if (sunBins[angle] && !current) current = { start: normalizedAngle, end: normalizedAngle + 1 }
+    if (sunBins[angle] && current) current.end = normalizedAngle + 1
+    if (!sunBins[angle] && current) {
+      ranges.push(current)
+      current = undefined
+    }
+  }
+  if (current) ranges.push(current)
+
+  return ranges
+    .flatMap((range) => {
+      if (range.end <= 360) return [range]
+      return [
+        { start: 0, end: range.end - 360 },
+        { start: range.start, end: 360 },
+      ]
+    })
+    .sort((a, b) => a.start - b.start)
+}
+
+function clampAngle(degrees: number) {
+  return Math.min(360, Math.max(0, degrees))
 }
 
 function setLoading(point: google.maps.LatLngLiteral) {
@@ -366,6 +458,9 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
   element.className = 'sun-map-marker'
   element.setAttribute('aria-hidden', 'true')
   element.innerHTML = `
+    <div class="sun-map-marker__day">
+      <span class="sun-map-marker__day-hand"></span>
+    </div>
     <div class="sun-map-marker__rays">
       <span></span>
       <span></span>
@@ -407,6 +502,26 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
       label.textContent = markerLabelForMode(nextMode)
     }
 
+    setDayFill(fill?: string) {
+      if (fill) {
+        element.dataset.hasDay = 'true'
+        element.style.setProperty('--day-fill', fill)
+      } else {
+        element.dataset.hasDay = 'false'
+        element.style.removeProperty('--day-fill')
+      }
+    }
+
+    setSunAngle(azimuthDeg?: number) {
+      if (azimuthDeg === undefined) {
+        element.dataset.hasSunAngle = 'false'
+        element.style.removeProperty('--sun-angle')
+      } else {
+        element.dataset.hasSunAngle = 'true'
+        element.style.setProperty('--sun-angle', `${azimuthDeg}deg`)
+      }
+    }
+
     setPosition(nextPoint: google.maps.LatLngLiteral) {
       position = nextPoint
       this.draw()
@@ -429,15 +544,96 @@ function injectMarkerStyles() {
   style.id = 'sun-map-marker-style'
   style.textContent = `
     .sun-map-marker {
+      --day-fill: conic-gradient(from 0deg, rgba(86, 160, 200, 0.16) 0turn 1turn);
       --marker-color: #56a0c8;
       --marker-shadow: rgba(86, 160, 200, 0.28);
-      height: 96px;
+      --sun-angle: 0deg;
+      height: 168px;
       left: 0;
       pointer-events: none;
       position: absolute;
       top: 0;
       transform: translate(-50%, -50%);
-      width: 112px;
+      width: 168px;
+    }
+
+    .sun-map-marker__day {
+      background: var(--day-fill);
+      border: 1px solid rgba(255, 255, 255, 0.66);
+      border-radius: 999px;
+      box-shadow:
+        inset 0 0 0 1px rgba(23, 32, 29, 0.08),
+        0 14px 36px var(--marker-shadow);
+      inset: 0;
+      opacity: 0.38;
+      overflow: hidden;
+      position: absolute;
+      transition: opacity 180ms ease, box-shadow 180ms ease;
+    }
+
+    .sun-map-marker[data-has-day="true"] .sun-map-marker__day {
+      opacity: 1;
+    }
+
+    .sun-map-marker__day::before {
+      background: repeating-conic-gradient(
+        from 0deg,
+        rgba(255, 255, 255, 0.52) 0deg 0.7deg,
+        transparent 0.7deg 15deg
+      );
+      border-radius: inherit;
+      content: "";
+      inset: 0;
+      mask: radial-gradient(circle, transparent 0 57%, #000 58% 100%);
+      position: absolute;
+      -webkit-mask: radial-gradient(circle, transparent 0 57%, #000 58% 100%);
+    }
+
+    .sun-map-marker__day::after {
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0 20%, rgba(255, 255, 255, 0) 58%);
+      border-radius: inherit;
+      content: "";
+      inset: 0;
+      position: absolute;
+    }
+
+    .sun-map-marker__day-hand {
+      inset: 0;
+      position: absolute;
+      opacity: 0;
+      transform: rotate(var(--sun-angle));
+      transform-origin: 50% 50%;
+      transition: opacity 160ms ease, transform 120ms linear;
+    }
+
+    .sun-map-marker[data-has-sun-angle="true"] .sun-map-marker__day-hand {
+      opacity: 1;
+    }
+
+    .sun-map-marker__day-hand::before {
+      background: linear-gradient(180deg, rgba(23, 32, 29, 0.58), rgba(23, 32, 29, 0));
+      border-radius: 999px;
+      content: "";
+      height: 70px;
+      left: 50%;
+      position: absolute;
+      top: 12px;
+      transform: translateX(-50%);
+      width: 2px;
+    }
+
+    .sun-map-marker__day-hand::after {
+      background: #ffffff;
+      border: 2px solid rgba(23, 32, 29, 0.5);
+      border-radius: 999px;
+      box-shadow: 0 3px 8px rgba(23, 32, 29, 0.2);
+      content: "";
+      height: 10px;
+      left: 50%;
+      position: absolute;
+      top: 8px;
+      transform: translateX(-50%);
+      width: 10px;
     }
 
     .sun-map-marker[data-mode="sun"] {
@@ -505,9 +701,9 @@ function injectMarkerStyles() {
     .sun-map-marker[data-mode="loading"] .sun-map-marker__rays {
       animation: sun-marker-turn 3.2s linear infinite;
       height: 78px;
-      left: 17px;
+      left: 45px;
       opacity: 1;
-      top: 9px;
+      top: 45px;
       width: 78px;
     }
 
@@ -562,24 +758,24 @@ function injectMarkerStyles() {
     }
 
     .sun-map-marker__cloud--one {
-      left: 10px;
-      top: 27px;
+      left: 52px;
+      top: 68px;
       transform: scale(var(--cloud-scale));
     }
 
     .sun-map-marker__cloud--two {
       --cloud-pop-scale: 0.9;
       --cloud-scale: 0.72;
-      right: 7px;
-      top: 30px;
+      right: 48px;
+      top: 70px;
       transform: scale(var(--cloud-scale));
     }
 
     .sun-map-marker__cloud--three {
       --cloud-pop-scale: 0.82;
       --cloud-scale: 0.64;
-      bottom: 18px;
-      left: 37px;
+      bottom: 56px;
+      left: 76px;
       transform: scale(var(--cloud-scale));
     }
 
