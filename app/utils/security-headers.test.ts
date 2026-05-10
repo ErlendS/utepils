@@ -8,7 +8,6 @@ test('content security policy allows the Google Maps browser API', () => {
 
   assert.deepEqual(policy.get('script-src'), [
     "'self'",
-    "'unsafe-eval'",
     'https://maps.googleapis.com',
     'https://maps.gstatic.com',
   ])
@@ -33,6 +32,7 @@ test('content security policy does not reuse image-only hosts for scripts or con
   assert.equal(policy.get('connect-src')?.includes('https://*.ggpht.com'), false)
   assert.equal(policy.get('connect-src')?.includes('https://*.googleusercontent.com'), false)
   assert.doesNotMatch(CONTENT_SECURITY_POLICY, /blob:/)
+  assert.doesNotMatch(CONTENT_SECURITY_POLICY, /'unsafe-eval'/)
   assert.equal(policy.get('script-src')?.some((source) => source.includes('fonts.google')), false)
   assert.equal(policy.get('connect-src')?.some((source) => source.includes('fonts.google')), false)
 })
