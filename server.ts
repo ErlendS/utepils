@@ -103,6 +103,10 @@ function loadDotEnv() {
     if (!match) continue
     let [, key, rawValue] = match
     if (process.env[key] !== undefined) continue
-    process.env[key] = rawValue.replace(/^["']|["']$/g, '')
+    let value =
+      rawValue.startsWith('"') || rawValue.startsWith("'")
+        ? rawValue.slice(1, -1)
+        : rawValue.replace(/\s+#.*$/, '').trimEnd()
+    process.env[key] = value
   }
 }

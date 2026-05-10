@@ -40,6 +40,7 @@ let map: google.maps.Map
 let marker: SunMarkerOverlay | undefined
 let selectedProfile: HorizonResponse | undefined
 let selectedPoint: google.maps.LatLngLiteral | undefined
+let selectPointController: AbortController | undefined
 
 const els = {
   dot: document.querySelector<HTMLElement>('#status-dot')!,
@@ -146,6 +147,10 @@ function isGeolocationError(error: unknown): error is GeolocationPositionError {
 }
 
 async function selectPoint(point: google.maps.LatLngLiteral) {
+  selectPointController?.abort()
+  selectPointController = new AbortController()
+  const signal = selectPointController.signal
+
   selectedPoint = point
   selectedProfile = undefined
   setMarker(point, 'loading')
@@ -154,6 +159,7 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
   try {
     let profile = await fetchJson<HorizonResponse>(
       `/api/poi-profile?lat=${encodeURIComponent(point.lat)}&lng=${encodeURIComponent(point.lng)}`,
+      signal,
     )
     selectedProfile = profile
     selectedPoint = { lat: profile.lat, lng: profile.lng }
@@ -163,6 +169,7 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
     updateSunWindows()
     updateForCurrentTime()
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
     setMarker(point, 'error')
     let message = error instanceof Error ? error.message : 'Profile request failed.'
     setStatus('Profile failed', message, 'error')
@@ -569,8 +576,8 @@ function loadGoogleMaps(apiKey: string) {
   })
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  let response = await fetch(url)
+async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  let response = await fetch(url, { signal })
   let body = await response.json().catch(() => undefined)
   if (!response.ok) {
     let message =
