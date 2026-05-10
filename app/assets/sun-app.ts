@@ -40,6 +40,8 @@ type SunMarkerOverlay = google.maps.OverlayView & {
 
 type SunWindow = { end: number; start: number }
 
+type SunAngleSample = { azimuthDeg: number; minute: number }
+
 type PlacesLibraryWithAutocompleteElement = google.maps.PlacesLibrary & {
   PlaceAutocompleteElement: typeof google.maps.places.PlaceAutocompleteElement
 }
@@ -56,9 +58,13 @@ class HttpError extends Error {
 
 let map: google.maps.Map
 let marker: SunMarkerOverlay | undefined
+let selectedSunAngleSamples: SunAngleSample[] = []
 let selectedProfile: HorizonResponse | undefined
 let selectedPoint: google.maps.LatLngLiteral | undefined
 let selectPointController: AbortController | undefined
+let suppressMapClickUntil = 0
+let sunAngleDragAzimuth: number | undefined
+let sunAngleDragMinute: number | undefined
 
 const els = {
   dot: document.querySelector<HTMLElement>('#status-dot')!,
@@ -118,6 +124,7 @@ async function bootstrap() {
   })
 
   map.addListener('click', (event: google.maps.MapMouseEvent) => {
+    if (Date.now() < suppressMapClickUntil) return
     if (!event.latLng) return
     void selectPoint(event.latLng.toJSON())
   })
@@ -247,6 +254,7 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
 
   selectedPoint = point
   selectedProfile = undefined
+  selectedSunAngleSamples = []
   setMarker(point, 'loading')
   marker?.setDayFill()
   marker?.setSunAngle()
@@ -258,6 +266,7 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
       signal,
     )
     selectedProfile = profile
+    selectedSunAngleSamples = getSunAngleSamples(profile)
     selectedPoint = { lat: profile.lat, lng: profile.lng }
     els.dsm.textContent = profile.dsm
       ? `${profile.dsm.imageryQuality ?? 'DSM'} at ${profile.dsm.pixelSizeXMeters.toFixed(2)}m px`
@@ -269,6 +278,7 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
     setMarker(point, 'error')
     marker?.setDayFill()
     marker?.setSunAngle()
+    selectedSunAngleSamples = []
     let message = error instanceof Error ? error.message : 'Profile request failed.'
     let isCoverageError = error instanceof HttpError && error.status === 404
     setStatus(isCoverageError ? 'Outside coverage' : 'Profile failed', message, 'error')
@@ -350,6 +360,44 @@ function getSunWindows(profile: HorizonResponse): SunWindow[] {
   return windows
 }
 
+function getSunAngleSamples(profile: HorizonResponse): SunAngleSample[] {
+  let samples: SunAngleSample[] = []
+
+  for (let minute = 0; minute < 1440; minute++) {
+    let reading = readSun(profile, dateForMinutes(minute))
+    samples.push({ azimuthDeg: reading.azimuthDeg, minute })
+  }
+
+  return samples
+}
+
+function updateTimeFromSunAngle(azimuthDeg: number) {
+  if (selectedSunAngleSamples.length === 0) return
+
+  let targetAzimuth = sunAngleDragAzimuth === undefined ? azimuthDeg : unwrapAngleNear(azimuthDeg, sunAngleDragAzimuth)
+  sunAngleDragAzimuth = targetAzimuth
+  let referenceMinute = sunAngleDragMinute ?? Number(els.slider.value)
+  let closest = selectedSunAngleSamples[0]
+  let closestUnwrappedMinute = unwrapMinuteNear(closest.minute, referenceMinute)
+  let closestScore = Number.POSITIVE_INFINITY
+
+  for (let sample of selectedSunAngleSamples) {
+    let unwrappedMinute = unwrapMinuteNear(sample.minute, referenceMinute)
+    let angleDistance = Math.abs(unwrapAngleNear(sample.azimuthDeg, targetAzimuth) - targetAzimuth)
+    let minuteDistance = Math.abs(unwrappedMinute - referenceMinute) / 1440
+    let score = angleDistance + minuteDistance * 0.01
+    if (score < closestScore) {
+      closest = sample
+      closestUnwrappedMinute = unwrappedMinute
+      closestScore = score
+    }
+  }
+
+  sunAngleDragMinute = closestUnwrappedMinute
+  els.slider.value = String(wrapMinute(closest.minute))
+  updateForCurrentTime()
+}
+
 function buildDayFill() {
   if (!selectedProfile) return undefined
 
@@ -425,6 +473,26 @@ function clampAngle(degrees: number) {
   return Math.min(360, Math.max(0, degrees))
 }
 
+function unwrapAngleNear(degrees: number, referenceDegrees: number) {
+  let turnOffset = Math.round((referenceDegrees - degrees) / 360) * 360
+  let candidate = degrees + turnOffset
+  if (candidate - referenceDegrees > 180) return candidate - 360
+  if (referenceDegrees - candidate > 180) return candidate + 360
+  return candidate
+}
+
+function unwrapMinuteNear(minute: number, referenceMinute: number) {
+  let dayOffset = Math.round((referenceMinute - minute) / 1440) * 1440
+  let candidate = minute + dayOffset
+  if (candidate - referenceMinute > 720) return candidate - 1440
+  if (referenceMinute - candidate > 720) return candidate + 1440
+  return candidate
+}
+
+function wrapMinute(minute: number) {
+  return ((Math.round(minute) % 1440) + 1440) % 1440
+}
+
 function setLoading(point: google.maps.LatLngLiteral) {
   els.point.textContent = `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`
   els.dsm.textContent = 'Fetching Google Solar DSM'
@@ -474,7 +542,55 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
     </div>
   `
 
+  let day = element.querySelector<HTMLElement>('.sun-map-marker__day')!
   let label = element.querySelector<HTMLElement>('.sun-map-marker__label')!
+  let renderedSunAngle: number | undefined
+
+  day.addEventListener('pointerdown', (event) => {
+    if (!selectedProfile) return
+    suppressMapClickAfterMarkerDrag()
+    sunAngleDragAzimuth = compassAngleFromPointer(event, element)
+    sunAngleDragMinute = Number(els.slider.value)
+    event.preventDefault()
+    event.stopPropagation()
+    day.setPointerCapture(event.pointerId)
+    element.dataset.dragging = 'true'
+    updateTimeFromSunAngle(compassAngleFromPointer(event, element))
+  })
+
+  day.addEventListener('pointermove', (event) => {
+    if (element.dataset.dragging !== 'true' || !day.hasPointerCapture(event.pointerId)) return
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    updateTimeFromSunAngle(compassAngleFromPointer(event, element))
+  })
+
+  day.addEventListener('pointerup', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    if (day.hasPointerCapture(event.pointerId)) day.releasePointerCapture(event.pointerId)
+    element.dataset.dragging = 'false'
+    sunAngleDragAzimuth = undefined
+    sunAngleDragMinute = undefined
+  })
+
+  day.addEventListener('pointercancel', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+    if (day.hasPointerCapture(event.pointerId)) day.releasePointerCapture(event.pointerId)
+    element.dataset.dragging = 'false'
+    sunAngleDragAzimuth = undefined
+    sunAngleDragMinute = undefined
+  })
+
+  day.addEventListener('click', (event) => {
+    suppressMapClickAfterMarkerDrag()
+    event.preventDefault()
+    event.stopPropagation()
+  })
 
   class MarkerOverlay extends google.maps.OverlayView {
     override onAdd() {
@@ -514,11 +630,13 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
 
     setSunAngle(azimuthDeg?: number) {
       if (azimuthDeg === undefined) {
+        renderedSunAngle = undefined
         element.dataset.hasSunAngle = 'false'
         element.style.removeProperty('--sun-angle')
       } else {
+        renderedSunAngle = renderedSunAngle === undefined ? azimuthDeg : unwrapAngleNear(azimuthDeg, renderedSunAngle)
         element.dataset.hasSunAngle = 'true'
-        element.style.setProperty('--sun-angle', `${azimuthDeg}deg`)
+        element.style.setProperty('--sun-angle', `${renderedSunAngle}deg`)
       }
     }
 
@@ -531,6 +649,17 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
   let overlay = new MarkerOverlay() as SunMarkerOverlay
   overlay.setMode(mode)
   return overlay
+}
+
+function compassAngleFromPointer(event: PointerEvent, element: HTMLElement) {
+  let rect = element.getBoundingClientRect()
+  let x = event.clientX - (rect.left + rect.width / 2)
+  let y = event.clientY - (rect.top + rect.height / 2)
+  return (toDegrees(Math.atan2(x, -y)) + 360) % 360
+}
+
+function suppressMapClickAfterMarkerDrag() {
+  suppressMapClickUntil = Date.now() + 450
 }
 
 function markerLabelForMode(mode: MarkerMode) {
@@ -554,6 +683,7 @@ function injectMarkerStyles() {
       position: absolute;
       top: 0;
       transform: translate(-50%, -50%);
+      user-select: none;
       width: 168px;
     }
 
@@ -567,12 +697,20 @@ function injectMarkerStyles() {
       inset: 0;
       opacity: 0.38;
       overflow: hidden;
+      pointer-events: none;
       position: absolute;
+      touch-action: none;
       transition: opacity 180ms ease, box-shadow 180ms ease;
     }
 
     .sun-map-marker[data-has-day="true"] .sun-map-marker__day {
+      cursor: grab;
       opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sun-map-marker[data-dragging="true"] .sun-map-marker__day {
+      cursor: grabbing;
     }
 
     .sun-map-marker__day::before {
