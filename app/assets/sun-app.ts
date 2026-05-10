@@ -582,14 +582,37 @@ function formatMinutes(minutes: number) {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
 }
 
-function loadGoogleMaps(apiKey: string): Promise<void> {
-  if (window.google?.maps) return Promise.resolve()
+async function loadGoogleMaps(apiKey: string): Promise<void> {
+  if (window.google?.maps) return
+  let lastError: Error | undefined
+  for (let i = 0; i < 3; i++) {
+    if (i > 0) {
+      document.querySelector('script[src*="maps.googleapis.com"]')?.remove()
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+    }
+    try {
+      await loadGoogleMapsScript(apiKey)
+      return
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Google Maps JavaScript failed to load.')
+    }
+  }
+  throw lastError ?? new Error('Google Maps JavaScript failed to load.')
+}
+
+function loadGoogleMapsScript(apiKey: string): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    window.__initSunMap = () => resolve()
-    document.querySelector('script[src*="maps.googleapis.com"]')?.remove()
+    let timeout = setTimeout(() => reject(new Error('Google Maps JavaScript timed out.')), 10_000)
+    window.__initSunMap = () => {
+      clearTimeout(timeout)
+      resolve()
+    }
     let script = document.createElement('script')
     script.async = true
-    script.onerror = () => reject(new Error('Google Maps JavaScript failed to load.'))
+    script.onerror = () => {
+      clearTimeout(timeout)
+      reject(new Error('Google Maps JavaScript failed to load.'))
+    }
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
       apiKey,
     )}&v=weekly&loading=async&callback=__initSunMap`
