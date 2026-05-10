@@ -64,6 +64,7 @@ const publicAssets = new Map([
   ['/favicon-16x16.png', 'image/png'],
   ['/favicon-32x32.png', 'image/png'],
   ['/favicon.ico', 'image/x-icon'],
+  ['/logo.png', 'image/png'],
   ['/site.webmanifest', 'application/manifest+json; charset=utf-8'],
 ])
 

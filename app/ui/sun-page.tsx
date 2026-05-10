@@ -46,6 +46,10 @@ export function SunPage() {
         <div id="app-shell" mix={shellStyle}>
           <aside mix={panelStyle}>
             <div>
+              <div mix={brandStyle}>
+                <img src="/logo.png" alt="Utepils logo" />
+                <span>utepils</span>
+              </div>
               <h1 mix={titleStyle}>Is this spot in sun right now?</h1>
               <p mix={copyStyle}>
                 Pick a spot on the map to see when it gets direct sunlight
@@ -54,7 +58,11 @@ export function SunPage() {
               </p>
             </div>
 
-            <button id="use-location-button" type="button" mix={locationButtonStyle}>
+            <button
+              id="use-location-button"
+              type="button"
+              mix={locationButtonStyle}
+            >
               Use my location
             </button>
 
@@ -140,6 +148,24 @@ const panelStyle = css({
   flexDirection: "column",
   gap: "24px",
   padding: "28px",
+});
+
+const brandStyle = css({
+  alignItems: "center",
+  color: "#3f4d46",
+  display: "inline-flex",
+  fontSize: "13px",
+  fontWeight: 800,
+  gap: "10px",
+  lineHeight: 1,
+  marginBottom: "18px",
+  "& img": {
+    borderRadius: "8px",
+    boxShadow: "0 8px 18px rgba(245, 185, 63, 0.25)",
+    display: "block",
+    height: "32px",
+    width: "32px",
+  },
 });
 
 const titleStyle = css({
