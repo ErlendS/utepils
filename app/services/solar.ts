@@ -21,7 +21,7 @@ interface DsmRequest {
 const dsmCache = new LruMap<string, Promise<DsmRaster>>(20)
 
 export class SolarCoverageError extends Error {
-  constructor(message = 'Outside high-resolution Solar coverage.') {
+  constructor(message = 'Outside Solar DSM coverage.') {
     super(message)
     this.name = 'SolarCoverageError'
   }
@@ -60,13 +60,28 @@ async function fetchDsmForPoint(request: DsmRequest): Promise<DsmRaster> {
   return downloadDsm(layers, apiKey)
 }
 
-async function getDataLayers(request: DsmRequest, apiKey: string): Promise<DataLayersResponse> {
+export async function getDataLayers(request: DsmRequest, apiKey: string): Promise<DataLayersResponse> {
+  try {
+    return await fetchDataLayers(request, apiKey, 'HIGH')
+  } catch (error) {
+    if (error instanceof SolarCoverageError) {
+      return fetchDataLayers(request, apiKey, 'MEDIUM')
+    }
+    throw error
+  }
+}
+
+async function fetchDataLayers(
+  request: DsmRequest,
+  apiKey: string,
+  requiredQuality: 'HIGH' | 'MEDIUM',
+): Promise<DataLayersResponse> {
   let params = new URLSearchParams({
     'location.latitude': request.lat.toFixed(7),
     'location.longitude': request.lng.toFixed(7),
     radiusMeters: String(request.radiusMeters),
     view: 'DSM_LAYER',
-    requiredQuality: 'HIGH',
+    requiredQuality,
     exactQualityRequired: 'true',
     pixelSizeMeters: String(request.pixelSizeMeters),
     key: apiKey,

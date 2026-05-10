@@ -98,7 +98,7 @@ async function buildProfileResponse(lat: number, lng: number) {
   } catch (error) {
     profileCache.delete(`${lat.toFixed(5)},${lng.toFixed(5)}`)
     if (isCoverageError(error)) {
-      return json({ error: 'Outside high-resolution Solar coverage.' }, { status: 404 })
+      return json({ error: 'Outside Solar DSM coverage.' }, { status: 404 })
     }
 
     let message = error instanceof Error ? error.message : 'Unable to compute sun profile.'
