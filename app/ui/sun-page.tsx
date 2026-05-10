@@ -12,6 +12,7 @@ export function SunPage() {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light" />
+        <meta name="robots" content="noindex,nofollow" />
         <title>utepils</title>
         <script
           type="module"

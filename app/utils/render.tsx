@@ -21,6 +21,7 @@ export function render(node: RemixNode, request: Request, init?: ResponseInit) {
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'text/html; charset=utf-8')
   }
+  headers.set('X-Robots-Tag', 'noindex, nofollow')
 
   return new Response(stream, { ...init, headers })
 }
