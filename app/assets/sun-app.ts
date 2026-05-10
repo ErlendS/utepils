@@ -548,7 +548,7 @@ function dateForMinutes(minutes: number) {
 }
 
 function formatTime(date: Date) {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatMinutes(date.getHours() * 60 + date.getMinutes())
 }
 
 function formatMinutes(minutes: number) {
