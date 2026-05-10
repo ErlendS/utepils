@@ -5,9 +5,9 @@ This is a Remix 3 beta app. It uses Fetch API routes/controllers, not Remix v2 r
 ## Commands
 
 ```sh
-npm run dev
-npm test
-npm run typecheck
+pnpm run dev
+pnpm test
+pnpm run typecheck
 ```
 
 ## Route Ownership

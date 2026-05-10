@@ -24,8 +24,8 @@ GOOGLE_MAPS_PLATFORM_REFERER=http://localhost:3000/
 ## Commands
 
 ```sh
-npm install
-npm run dev
-npm test
-npm run typecheck
+pnpm install
+pnpm run dev
+pnpm test
+pnpm run typecheck
 ```

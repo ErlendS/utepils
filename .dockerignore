@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+.pnpm-store
+.env
+.env.*
+.DS_Store
+*.log
+coverage
+dist

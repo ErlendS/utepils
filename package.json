@@ -2,6 +2,7 @@
   "name": "utepils",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.0.9",
   "scripts": {
     "dev": "tsx watch server.ts",
     "start": "tsx server.ts",
@@ -12,17 +13,17 @@
     "node": ">=24.3.0"
   },
   "dependencies": {
-    "geotiff": "latest",
-    "geotiff-geokeys-to-proj4": "latest",
-    "proj4": "latest",
-    "remix": "^3.0.0-beta.0",
-    "suncalc": "latest",
-    "tsx": "latest"
+    "geotiff": "3.0.5",
+    "geotiff-geokeys-to-proj4": "2024.4.13",
+    "proj4": "2.20.8",
+    "remix": "3.0.0-beta.0",
+    "suncalc": "1.9.0",
+    "tsx": "4.21.0"
   },
   "devDependencies": {
-    "@types/suncalc": "latest",
-    "@types/google.maps": "latest",
-    "@types/node": "latest",
-    "typescript": "latest"
+    "@types/suncalc": "1.9.2",
+    "@types/google.maps": "3.64.0",
+    "@types/node": "25.6.2",
+    "typescript": "6.0.3"
   }
 }
