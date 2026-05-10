@@ -2,7 +2,7 @@
 
 ARG NODE_VERSION=24.14.1
 ARG PNPM_VERSION=11.0.9
-FROM node:${NODE_VERSION}-slim AS base
+FROM node:${NODE_VERSION}-trixie-slim AS base
 
 LABEL fly_launch_runtime="Remix"
 

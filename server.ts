@@ -15,7 +15,15 @@ const server = serve(
       let publicResponse = await servePublicAsset(request)
       if (publicResponse) return publicResponse
 
-      return await router.fetch(request)
+      let response = await router.fetch(getRoutableRequest(request))
+      if (request.method === 'HEAD') {
+        return new Response(null, {
+          headers: response.headers,
+          status: response.status,
+          statusText: response.statusText,
+        })
+      }
+      return response
     } catch (error) {
       console.error(error)
       return new Response('Internal Server Error', { status: 500 })
@@ -43,6 +51,11 @@ function shutdown() {
 
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
+
+function getRoutableRequest(request: Request) {
+  if (request.method !== 'HEAD') return request
+  return new Request(request, { method: 'GET' })
+}
 
 const publicAssets = new Map([
   ['/android-chrome-192x192.png', 'image/png'],
