@@ -22,7 +22,7 @@ COPY --link pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm fetch --prod --frozen-lockfile
 
 COPY --link package.json ./
-RUN pnpm install --prod --frozen-lockfile --offline
+RUN pnpm install --prod --frozen-lockfile
 
 FROM base AS final
 
