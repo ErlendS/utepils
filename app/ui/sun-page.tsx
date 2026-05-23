@@ -202,11 +202,12 @@ const pageStyle = css({
   "--ui-logo-shadow": "rgba(245, 185, 63, 0.25)",
   "--ui-slider-thumb": "#f5b93f",
   "--ui-slider-thumb-border": "rgba(255, 255, 255, 0.72)",
-  "--ui-slider-track": "rgba(255, 255, 255, 0.24)",
+  "--ui-slider-thumb-shadow": "rgba(16, 29, 51, 0.18)",
   "--ui-status-divider": "rgba(237, 241, 234, 0.82)",
   "--ui-text": "#17201d",
   "--ui-text-muted": "#4f5c55",
-  "--ui-window-bg": "rgba(223, 229, 219, 0.72)",
+  "--ui-window-fill": "rgba(255, 255, 255, 0.16)",
+  "--ui-window-bg": "transparent",
   margin: 0,
   minHeight: "100vh",
   background: "var(--sky-bottom)",
@@ -552,34 +553,40 @@ const scrubberStyle = css({
     outlineOffset: "3px",
   },
   "& input[type='range']::-webkit-slider-runnable-track": {
-    background: "var(--ui-slider-track)",
-    border: "1px solid var(--ui-control-border)",
+    background:
+      "linear-gradient(180deg, rgba(0, 0, 0, 0.16), var(--ui-control-border) 48%, rgba(255, 255, 255, 0.1))",
+    border: 0,
     borderRadius: "999px",
-    boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",
-    height: "10px",
+    boxShadow:
+      "inset 0 1px 2px rgba(0, 0, 0, 0.16), inset 0 -1px 1px rgba(255, 255, 255, 0.08)",
+    height: "4px",
   },
   "& input[type='range']::-moz-range-track": {
-    background: "var(--ui-slider-track)",
-    border: "1px solid var(--ui-control-border)",
+    background:
+      "linear-gradient(180deg, rgba(0, 0, 0, 0.16), var(--ui-control-border) 48%, rgba(255, 255, 255, 0.1))",
+    border: 0,
     borderRadius: "999px",
-    boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",
-    height: "10px",
+    boxShadow:
+      "inset 0 1px 2px rgba(0, 0, 0, 0.16), inset 0 -1px 1px rgba(255, 255, 255, 0.08)",
+    height: "4px",
   },
   "& input[type='range']::-webkit-slider-thumb": {
     appearance: "none",
     background: "var(--ui-slider-thumb)",
     border: "2px solid var(--ui-slider-thumb-border)",
     borderRadius: "999px",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.42)",
+    boxShadow:
+      "0 5px 12px var(--ui-slider-thumb-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 4px rgba(85, 53, 0, 0.18)",
     height: "22px",
-    marginTop: "-7px",
+    marginTop: "-9px",
     width: "22px",
   },
   "& input[type='range']::-moz-range-thumb": {
     background: "var(--ui-slider-thumb)",
     border: "2px solid var(--ui-slider-thumb-border)",
     borderRadius: "999px",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.42)",
+    boxShadow:
+      "0 5px 12px var(--ui-slider-thumb-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 4px rgba(85, 53, 0, 0.18)",
     height: "18px",
     width: "18px",
   },
@@ -602,7 +609,7 @@ const scrubberHeaderStyle = css({
 });
 
 const windowsStyle = css({
-  background: "var(--ui-window-bg)",
+  background: "var(--ui-window-fill)",
   border: "1px solid var(--ui-control-border)",
   borderRadius: "999px",
   boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",

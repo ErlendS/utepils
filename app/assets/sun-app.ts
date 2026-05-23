@@ -84,6 +84,8 @@ type UiTheme = {
   text: string
   textMuted: string
   windowBg: string
+  windowFill: string
+  sliderThumbShadow: string
 }
 
 type MarkerDragHandle = HTMLElement & {
@@ -675,7 +677,9 @@ function getUiTheme(theme: SkyTheme): UiTheme {
     statusDivider: hexToRgba(mixHex('#edf1ea', '#dce8ff', surfaceAmount), mixNumber(0.82, 0.28, surfaceAmount)),
     text: mixHex('#17201d', '#fbf7ef', textAmount),
     textMuted: mixHex('#4f5c55', '#cfdbeb', textAmount),
-    windowBg: hexToRgba(mixHex('#dfe5db', '#0b1830', surfaceAmount), mixNumber(0.72, 0.42, surfaceAmount)),
+    windowBg: 'transparent',
+    windowFill: hexToRgba(mixHex('#ffffff', '#071226', surfaceAmount), mixNumber(0.16, 0.24, surfaceAmount)),
+    sliderThumbShadow: hexToRgba(mixHex('#101d33', '#000510', surfaceAmount), mixNumber(0.18, 0.38, surfaceAmount)),
   }
 }
 
@@ -699,6 +703,8 @@ function writeUiTheme(theme: UiTheme) {
   bodyStyle.setProperty('--ui-text', theme.text)
   bodyStyle.setProperty('--ui-text-muted', theme.textMuted)
   bodyStyle.setProperty('--ui-window-bg', theme.windowBg)
+  bodyStyle.setProperty('--ui-window-fill', theme.windowFill)
+  bodyStyle.setProperty('--ui-slider-thumb-shadow', theme.sliderThumbShadow)
   syncPlaceAutocompleteStyles(theme)
 }
 
