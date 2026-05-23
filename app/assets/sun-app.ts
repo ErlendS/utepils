@@ -953,7 +953,6 @@ function injectMarkerStyles() {
     }
 
     .sun-map-marker[data-dragging="time"] .sun-map-marker__day {
-      background: rgba(255, 255, 255, 0.3);
       cursor: grabbing;
     }
 
@@ -995,15 +994,11 @@ function injectMarkerStyles() {
       opacity: 0;
       transform: rotate(var(--sun-angle));
       transform-origin: 50% 50%;
-      transition: opacity 160ms ease, transform 120ms linear;
+      transition: opacity 160ms ease;
     }
 
     .sun-map-marker[data-has-sun-angle="true"] .sun-map-marker__day-hand {
       opacity: 1;
-    }
-
-    .sun-map-marker[data-dragging="time"] .sun-map-marker__day-hand {
-      transition: opacity 160ms ease;
     }
 
     .sun-map-marker__day-hand::before {
