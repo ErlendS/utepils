@@ -354,6 +354,9 @@ const placeSearchStyle = css({
   "& gmp-place-autocomplete::part(input)": {
     color: "var(--ui-text)",
   },
+  "& gmp-place-autocomplete:focus-within:not([data-has-place])::part(input)": {
+    color: "#17201d",
+  },
   "& gmp-place-autocomplete::part(input)::placeholder": {
     color: "var(--ui-text-muted)",
     opacity: 1,

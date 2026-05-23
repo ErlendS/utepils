@@ -312,7 +312,14 @@ async function setupPlaceSearch(origin: google.maps.LatLngLiteral) {
   placeAutocomplete.addEventListener('gmp-error', () => {
     setPlaceSearchMessage('Address search is unavailable.')
   })
+  placeAutocomplete.addEventListener('input', () => {
+    placeAutocomplete.removeAttribute('data-has-place')
+    requestAnimationFrame(() => {
+      if (placeAutocomplete.shadowRoot) injectPlaceAutocompleteStyles(placeAutocomplete.shadowRoot)
+    })
+  })
   placeAutocomplete.addEventListener('gmp-select', async (event) => {
+    placeAutocomplete.dataset.hasPlace = '1'
     let place = event.placePrediction.toPlace()
     setStatus('Finding address', 'Loading the selected place.', 'loading')
     setPlaceSearchMessage()
@@ -716,10 +723,12 @@ function syncPlaceAutocompleteStyles(theme?: UiTheme) {
   for (let element of document.querySelectorAll<HTMLElement>('gmp-place-autocomplete')) {
     element.style.setProperty('--utepils-place-text', text)
     element.style.setProperty('--utepils-place-placeholder', placeholder)
+    if (element.shadowRoot) injectPlaceAutocompleteStyles(element.shadowRoot)
+  }
+}
 
-    let root = element.shadowRoot
-    if (!root || root.querySelector('#utepils-place-autocomplete-style')) continue
-
+function injectPlaceAutocompleteStyles(root: ShadowRoot) {
+  if (!root.querySelector('#utepils-place-autocomplete-style')) {
     let style = document.createElement('style')
     style.id = 'utepils-place-autocomplete-style'
     style.textContent = `
@@ -727,6 +736,11 @@ function syncPlaceAutocompleteStyles(theme?: UiTheme) {
       textarea,
       [part~="input"] {
         color: var(--utepils-place-text) !important;
+      }
+
+      [part~="clear-icon"],
+      [part~="clear-button"] {
+        display: none !important;
       }
 
       input::placeholder,
@@ -745,6 +759,10 @@ function syncPlaceAutocompleteStyles(theme?: UiTheme) {
       }
     `
     root.append(style)
+  }
+
+  for (const el of root.querySelectorAll('*')) {
+    if (el.shadowRoot) injectPlaceAutocompleteStyles(el.shadowRoot)
   }
 }
 
