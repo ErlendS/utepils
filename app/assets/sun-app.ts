@@ -619,17 +619,22 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
 }
 
 function bindSunAngleDragHandle(handle: MarkerDragHandle, element: HTMLElement) {
+  let pendingDragAzimuth: number | undefined
+  let dragFrame: number | undefined
+
   handle.addEventListener('pointerdown', (event) => {
     if (!selectedProfile) return
     suspendMapGesturesForMarkerDrag()
     suppressMapClickAfterMarkerDrag()
-    sunAngleDragAzimuth = compassAngleFromPointer(event, element)
+    let azimuthDeg = compassAngleFromPointer(event, element)
+    sunAngleDragAzimuth = azimuthDeg
     sunAngleDragMinute = Number(els.slider.value)
     event.preventDefault()
     event.stopPropagation()
     handle.setPointerCapture(event.pointerId)
     element.dataset.dragging = 'time'
-    updateTimeFromSunAngle(compassAngleFromPointer(event, element))
+    setDraggedSunAngle(element, azimuthDeg)
+    updateTimeFromSunAngle(azimuthDeg)
   })
 
   handle.addEventListener('pointermove', (event) => {
@@ -637,13 +642,18 @@ function bindSunAngleDragHandle(handle: MarkerDragHandle, element: HTMLElement) 
     suppressMapClickAfterMarkerDrag()
     event.preventDefault()
     event.stopPropagation()
-    updateTimeFromSunAngle(compassAngleFromPointer(event, element))
+    let azimuthDeg = compassAngleFromPointer(event, element)
+    setDraggedSunAngle(element, azimuthDeg)
+    scheduleDraggedTimeUpdate(azimuthDeg)
   })
 
   handle.addEventListener('pointerup', (event) => {
     suppressMapClickAfterMarkerDrag()
     event.preventDefault()
     event.stopPropagation()
+    if (element.dataset.dragging === 'time') {
+      flushDraggedTimeUpdate(compassAngleFromPointer(event, element))
+    }
     if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
     finishSunAngleDrag(element)
   })
@@ -653,6 +663,7 @@ function bindSunAngleDragHandle(handle: MarkerDragHandle, element: HTMLElement) 
     event.preventDefault()
     event.stopPropagation()
     if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
+    cancelDraggedTimeUpdate()
     finishSunAngleDrag(element)
   })
 
@@ -664,6 +675,43 @@ function bindSunAngleDragHandle(handle: MarkerDragHandle, element: HTMLElement) 
 
   handle.addEventListener('touchstart', preventMarkerTouchGesture, { passive: false })
   handle.addEventListener('touchmove', preventMarkerTouchGesture, { passive: false })
+
+  function setDraggedSunAngle(draggedElement: HTMLElement, azimuthDeg: number) {
+    let referenceAzimuth = sunAngleDragAzimuth ?? azimuthDeg
+    draggedElement.dataset.hasSunAngle = 'true'
+    draggedElement.style.setProperty('--sun-angle', `${unwrapAngleNear(azimuthDeg, referenceAzimuth)}deg`)
+  }
+
+  function scheduleDraggedTimeUpdate(azimuthDeg: number) {
+    pendingDragAzimuth = azimuthDeg
+    if (dragFrame !== undefined) return
+
+    dragFrame = requestAnimationFrame(() => {
+      dragFrame = undefined
+      if (pendingDragAzimuth === undefined || element.dataset.dragging !== 'time') return
+      let nextAzimuth = pendingDragAzimuth
+      pendingDragAzimuth = undefined
+      updateTimeFromSunAngle(nextAzimuth)
+      setDraggedSunAngle(element, nextAzimuth)
+    })
+  }
+
+  function flushDraggedTimeUpdate(azimuthDeg: number) {
+    if (dragFrame !== undefined) {
+      cancelAnimationFrame(dragFrame)
+      dragFrame = undefined
+    }
+    pendingDragAzimuth = undefined
+    updateTimeFromSunAngle(azimuthDeg)
+  }
+
+  function cancelDraggedTimeUpdate() {
+    if (dragFrame !== undefined) {
+      cancelAnimationFrame(dragFrame)
+      dragFrame = undefined
+    }
+    pendingDragAzimuth = undefined
+  }
 }
 
 function finishSunAngleDrag(element: HTMLElement) {
@@ -842,6 +890,7 @@ function injectMarkerStyles() {
     }
 
     .sun-map-marker[data-dragging="time"] .sun-map-marker__day {
+      background: rgba(255, 255, 255, 0.3);
       cursor: grabbing;
     }
 
@@ -888,6 +937,10 @@ function injectMarkerStyles() {
 
     .sun-map-marker[data-has-sun-angle="true"] .sun-map-marker__day-hand {
       opacity: 1;
+    }
+
+    .sun-map-marker[data-dragging="time"] .sun-map-marker__day-hand {
+      transition: opacity 160ms ease;
     }
 
     .sun-map-marker__day-hand::before {
