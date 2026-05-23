@@ -124,8 +124,9 @@ async function bootstrap() {
     center: config.city,
     clickableIcons: false,
     fullscreenControl: false,
+    gestureHandling: 'greedy',
     mapTypeControl: true,
-    mapTypeId: google.maps.MapTypeId.TERRAIN,
+    mapTypeId: google.maps.MapTypeId.ROADMAP,
     streetViewControl: false,
     zoom: 15,
   })
@@ -784,7 +785,7 @@ function restoreMapGesturesAfterMarkerDrag() {
   if (!markerDragMapOptions) return
   map.setOptions({
     draggable: markerDragMapOptions.draggable ?? true,
-    gestureHandling: markerDragMapOptions.gestureHandling ?? 'auto',
+    gestureHandling: markerDragMapOptions.gestureHandling ?? 'greedy',
   })
   markerDragMapOptions = undefined
 }
