@@ -68,11 +68,6 @@ type Rgb = { b: number; g: number; r: number }
 
 type UiTheme = {
   brandText: string
-  buttonBg: string
-  buttonBorder: string
-  buttonHoverBg: string
-  buttonHoverBorder: string
-  buttonText: string
   cardBg: string
   cardBorder: string
   cardHighlight: string
@@ -362,9 +357,8 @@ async function useCurrentLocation() {
     return
   }
 
-  let previousLabel = els.useLocation.textContent ?? 'Use my location'
   els.useLocation.disabled = true
-  els.useLocation.textContent = 'Finding location'
+  els.useLocation.setAttribute('aria-busy', 'true')
   setStatus('Finding location', 'Waiting for permission from your browser.', 'loading')
   hideToast()
 
@@ -384,7 +378,7 @@ async function useCurrentLocation() {
     showErrorToast(message)
   } finally {
     els.useLocation.disabled = false
-    els.useLocation.textContent = previousLabel
+    els.useLocation.removeAttribute('aria-busy')
   }
 }
 
@@ -666,11 +660,6 @@ function getUiTheme(theme: SkyTheme): UiTheme {
 
   return {
     brandText: mixHex('#31413a', '#f6f1e8', textAmount),
-    buttonBg: mixHex('#17201d', '#f6f1e8', textAmount),
-    buttonBorder: mixHex('#17201d', '#f6f1e8', textAmount),
-    buttonHoverBg: mixHex('#2a3832', '#ffffff', textAmount),
-    buttonHoverBorder: mixHex('#2a3832', '#ffffff', textAmount),
-    buttonText: mixHex('#f8faf6', '#142034', textAmount),
     cardBg: hexToRgba(mixHex('#ffffff', '#071226', surfaceAmount), glassAlpha),
     cardBorder: hexToRgba(mixHex('#ffffff', '#d8e5ff', surfaceAmount), borderAlpha),
     cardHighlight: hexToRgba('#ffffff', mixNumber(0.2, 0.14, surfaceAmount)),
@@ -694,11 +683,6 @@ function writeUiTheme(theme: UiTheme) {
   let bodyStyle = document.body.style
 
   bodyStyle.setProperty('--ui-brand-text', theme.brandText)
-  bodyStyle.setProperty('--ui-button-bg', theme.buttonBg)
-  bodyStyle.setProperty('--ui-button-border', theme.buttonBorder)
-  bodyStyle.setProperty('--ui-button-hover-bg', theme.buttonHoverBg)
-  bodyStyle.setProperty('--ui-button-hover-border', theme.buttonHoverBorder)
-  bodyStyle.setProperty('--ui-button-text', theme.buttonText)
   bodyStyle.setProperty('--ui-card-bg', theme.cardBg)
   bodyStyle.setProperty('--ui-card-border', theme.cardBorder)
   bodyStyle.setProperty('--ui-card-highlight', theme.cardHighlight)

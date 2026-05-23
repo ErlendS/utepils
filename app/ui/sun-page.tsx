@@ -188,11 +188,6 @@ const pageStyle = css({
   "--sky-star-opacity": "0",
   "--sky-top": "#5eabdf",
   "--ui-brand-text": "#31413a",
-  "--ui-button-bg": "#17201d",
-  "--ui-button-border": "#17201d",
-  "--ui-button-hover-bg": "#2a3832",
-  "--ui-button-hover-border": "#2a3832",
-  "--ui-button-text": "#f8faf6",
   "--ui-card-bg": "rgba(255, 255, 255, 0.24)",
   "--ui-card-border": "rgba(255, 255, 255, 0.36)",
   "--ui-card-highlight": "rgba(255, 255, 255, 0.2)",
@@ -205,6 +200,9 @@ const pageStyle = css({
   "--ui-focus": "rgba(86, 160, 200, 0.4)",
   "--ui-label": "#34413b",
   "--ui-logo-shadow": "rgba(245, 185, 63, 0.25)",
+  "--ui-slider-thumb": "#f5b93f",
+  "--ui-slider-thumb-border": "rgba(255, 255, 255, 0.72)",
+  "--ui-slider-track": "rgba(255, 255, 255, 0.24)",
   "--ui-status-divider": "rgba(237, 241, 234, 0.82)",
   "--ui-text": "#17201d",
   "--ui-text-muted": "#4f5c55",
@@ -365,6 +363,13 @@ const placeSearchStyle = css({
   },
 });
 
+const searchControlsStyle = css({
+  alignItems: "stretch",
+  display: "grid",
+  gap: "10px",
+  gridTemplateColumns: "minmax(0, 1fr) 44px",
+});
+
 const placeSearchMessageStyle = css({
   color: "var(--ui-error-text)",
   fontSize: "12px",
@@ -374,24 +379,29 @@ const placeSearchMessageStyle = css({
 
 const locationButtonStyle = css({
   alignItems: "center",
-  background: "var(--ui-button-bg)",
-  border: "1px solid var(--ui-button-border)",
+  background: "var(--ui-control-bg)",
+  backdropFilter: "blur(18px) saturate(1.15)",
+  border: "1px solid var(--ui-control-border)",
   borderRadius: "8px",
-  color: "var(--ui-button-text)",
+  color: "var(--ui-text)",
   cursor: "pointer",
   display: "inline-flex",
   font: "inherit",
-  fontSize: "14px",
-  fontWeight: 800,
   justifyContent: "center",
+  minWidth: "44px",
   minHeight: "44px",
-  padding: "0 16px",
+  padding: 0,
   transition:
-    "background 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease",
-  width: "100%",
+    "background 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 140ms ease",
+  width: "44px",
+  "& svg": {
+    height: "20px",
+    width: "20px",
+  },
   "&:hover:not(:disabled)": {
-    background: "var(--ui-button-hover-bg)",
-    borderColor: "var(--ui-button-hover-border)",
+    background: "var(--ui-control-hover-bg)",
+    borderColor: "var(--ui-control-hover-border)",
+    transform: "translateY(-1px)",
   },
   "&:focus-visible": {
     outline: "3px solid var(--ui-focus)",
@@ -400,6 +410,19 @@ const locationButtonStyle = css({
   "&:disabled": {
     cursor: "wait",
     opacity: 0.68,
+    transform: "none",
+  },
+  "&[aria-busy='true'] svg": {
+    animation: "location-button-pulse 900ms ease-in-out infinite",
+  },
+  "@media (prefers-reduced-motion: reduce)": {
+    "&[aria-busy='true'] svg": {
+      animation: "none",
+    },
+  },
+  "@keyframes location-button-pulse": {
+    "0%, 100%": { transform: "scale(1)" },
+    "50%": { transform: "scale(0.86)" },
   },
 });
 
@@ -509,6 +532,57 @@ const factsStyle = css({
 const scrubberStyle = css({
   display: "grid",
   gap: "14px",
+  "& input[type='range']": {
+    appearance: "none",
+    background: "transparent",
+    cursor: "pointer",
+    height: "28px",
+    margin: 0,
+    width: "100%",
+  },
+  "& input[type='range']:focus": {
+    outline: "none",
+  },
+  "& input[type='range']:focus-visible::-webkit-slider-thumb": {
+    outline: "3px solid var(--ui-focus)",
+    outlineOffset: "3px",
+  },
+  "& input[type='range']:focus-visible::-moz-range-thumb": {
+    outline: "3px solid var(--ui-focus)",
+    outlineOffset: "3px",
+  },
+  "& input[type='range']::-webkit-slider-runnable-track": {
+    background: "var(--ui-slider-track)",
+    border: "1px solid var(--ui-control-border)",
+    borderRadius: "999px",
+    boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",
+    height: "10px",
+  },
+  "& input[type='range']::-moz-range-track": {
+    background: "var(--ui-slider-track)",
+    border: "1px solid var(--ui-control-border)",
+    borderRadius: "999px",
+    boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",
+    height: "10px",
+  },
+  "& input[type='range']::-webkit-slider-thumb": {
+    appearance: "none",
+    background: "var(--ui-slider-thumb)",
+    border: "2px solid var(--ui-slider-thumb-border)",
+    borderRadius: "999px",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.42)",
+    height: "22px",
+    marginTop: "-7px",
+    width: "22px",
+  },
+  "& input[type='range']::-moz-range-thumb": {
+    background: "var(--ui-slider-thumb)",
+    border: "2px solid var(--ui-slider-thumb-border)",
+    borderRadius: "999px",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.42)",
+    height: "18px",
+    width: "18px",
+  },
 });
 
 const scrubberHeaderStyle = css({
