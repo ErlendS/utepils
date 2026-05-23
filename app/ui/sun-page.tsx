@@ -67,21 +67,39 @@ export function SunPage() {
 
             <section mix={searchStyle} aria-label="Address search">
               <p>Address</p>
-              <div id="place-search" mix={placeSearchStyle}></div>
+              <div mix={searchControlsStyle}>
+                <div id="place-search" mix={placeSearchStyle}></div>
+                <button
+                  id="use-location-button"
+                  type="button"
+                  mix={locationButtonStyle}
+                  aria-label="Use my location"
+                  title="Use my location"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="7" />
+                    <circle cx="12" cy="12" r="2" />
+                    <path d="M12 2v3" />
+                    <path d="M12 19v3" />
+                    <path d="M2 12h3" />
+                    <path d="M19 12h3" />
+                  </svg>
+                </button>
+              </div>
               <p
                 id="place-search-message"
                 mix={placeSearchMessageStyle}
                 aria-live="polite"
               ></p>
             </section>
-
-            <button
-              id="use-location-button"
-              type="button"
-              mix={locationButtonStyle}
-            >
-              Use my location
-            </button>
 
             <section mix={statusCardStyle} aria-live="polite">
               <div mix={statusHeaderStyle}>
@@ -169,10 +187,32 @@ const pageStyle = css({
   "--sky-mid": "#98cdf0",
   "--sky-star-opacity": "0",
   "--sky-top": "#5eabdf",
+  "--ui-brand-text": "#31413a",
+  "--ui-button-bg": "#17201d",
+  "--ui-button-border": "#17201d",
+  "--ui-button-hover-bg": "#2a3832",
+  "--ui-button-hover-border": "#2a3832",
+  "--ui-button-text": "#f8faf6",
+  "--ui-card-bg": "rgba(255, 255, 255, 0.24)",
+  "--ui-card-border": "rgba(255, 255, 255, 0.36)",
+  "--ui-card-highlight": "rgba(255, 255, 255, 0.2)",
+  "--ui-control-bg": "rgba(255, 255, 255, 0.24)",
+  "--ui-control-border": "rgba(255, 255, 255, 0.36)",
+  "--ui-control-hover-bg": "rgba(255, 255, 255, 0.34)",
+  "--ui-control-hover-border": "rgba(255, 255, 255, 0.5)",
+  "--ui-divider": "rgba(215, 221, 210, 0.76)",
+  "--ui-error-text": "#b14242",
+  "--ui-focus": "rgba(86, 160, 200, 0.4)",
+  "--ui-label": "#34413b",
+  "--ui-logo-shadow": "rgba(245, 185, 63, 0.25)",
+  "--ui-status-divider": "rgba(237, 241, 234, 0.82)",
+  "--ui-text": "#17201d",
+  "--ui-text-muted": "#4f5c55",
+  "--ui-window-bg": "rgba(223, 229, 219, 0.72)",
   margin: 0,
   minHeight: "100vh",
   background: "var(--sky-bottom)",
-  color: "#17201d",
+  color: "var(--ui-text)",
   fontFamily: FONT_STACK,
   "& *, & *::before, & *::after": { boxSizing: "border-box" },
 });
@@ -239,7 +279,7 @@ const panelStyle = css({
 
 const brandStyle = css({
   alignItems: "center",
-  color: "#3f4d46",
+  color: "var(--ui-brand-text)",
   display: "inline-flex",
   fontSize: "13px",
   fontWeight: 800,
@@ -248,7 +288,7 @@ const brandStyle = css({
   marginBottom: "18px",
   "& img": {
     borderRadius: "8px",
-    boxShadow: "0 8px 18px rgba(245, 185, 63, 0.25)",
+    boxShadow: "0 8px 18px var(--ui-logo-shadow)",
     display: "block",
     height: "32px",
     width: "32px",
@@ -263,7 +303,7 @@ const titleStyle = css({
 });
 
 const copyStyle = css({
-  color: "#4f5c55",
+  color: "var(--ui-text-muted)",
   fontSize: "15px",
   lineHeight: 1.55,
   margin: "14px 0 0",
@@ -271,7 +311,7 @@ const copyStyle = css({
 
 const dividerStyle = css({
   background:
-    "linear-gradient(90deg, rgba(215, 221, 210, 0), #d7ddd2 18%, #d7ddd2 82%, rgba(215, 221, 210, 0))",
+    "linear-gradient(90deg, rgba(215, 221, 210, 0), var(--ui-divider) 18%, var(--ui-divider) 82%, rgba(215, 221, 210, 0))",
   height: "1px",
   margin: "4px 0",
   width: "100%",
@@ -281,8 +321,10 @@ const searchStyle = css({
   display: "grid",
   gap: "8px",
   minWidth: 0,
+  position: "relative",
+  zIndex: 3,
   "& p": {
-    color: "#34413b",
+    color: "var(--ui-label)",
     fontSize: "13px",
     fontWeight: 800,
     margin: 0,
@@ -295,16 +337,36 @@ const placeSearchStyle = css({
   overflowX: "clip",
   width: "100%",
   "& gmp-place-autocomplete": {
-    colorScheme: "light",
+    "--gmp-mat-color-on-surface": "var(--ui-text)",
+    "--gmp-mat-color-on-surface-variant": "var(--ui-text-muted)",
+    "--gmp-mat-color-surface": "var(--ui-control-bg)",
+    "--gmp-mat-color-surface-container": "var(--ui-control-bg)",
+    "--gmp-mat-color-surface-container-high": "var(--ui-control-hover-bg)",
+    background: "var(--ui-control-bg)",
+    backdropFilter: "blur(18px) saturate(1.15)",
+    border: "1px solid var(--ui-control-border)",
+    borderRadius: "8px",
+    boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",
     display: "block",
     maxWidth: "100%",
     minWidth: 0,
     width: "100%",
   },
+  "& gmp-place-autocomplete::part(input)": {
+    color: "var(--ui-text)",
+  },
+  "& gmp-place-autocomplete::part(input)::placeholder": {
+    color: "var(--ui-text-muted)",
+    opacity: 1,
+  },
+  "& gmp-place-autocomplete::part(input)::-webkit-input-placeholder": {
+    color: "var(--ui-text-muted)",
+    opacity: 1,
+  },
 });
 
 const placeSearchMessageStyle = css({
-  color: "#b14242",
+  color: "var(--ui-error-text)",
   fontSize: "12px",
   lineHeight: 1.35,
   margin: 0,
@@ -312,10 +374,10 @@ const placeSearchMessageStyle = css({
 
 const locationButtonStyle = css({
   alignItems: "center",
-  background: "#17201d",
-  border: "1px solid #17201d",
+  background: "var(--ui-button-bg)",
+  border: "1px solid var(--ui-button-border)",
   borderRadius: "8px",
-  color: "#f8faf6",
+  color: "var(--ui-button-text)",
   cursor: "pointer",
   display: "inline-flex",
   font: "inherit",
@@ -328,11 +390,11 @@ const locationButtonStyle = css({
     "background 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease",
   width: "100%",
   "&:hover:not(:disabled)": {
-    background: "#2a3832",
-    borderColor: "#2a3832",
+    background: "var(--ui-button-hover-bg)",
+    borderColor: "var(--ui-button-hover-border)",
   },
   "&:focus-visible": {
-    outline: "3px solid rgba(86, 160, 200, 0.4)",
+    outline: "3px solid var(--ui-focus)",
     outlineOffset: "2px",
   },
   "&:disabled": {
@@ -343,10 +405,10 @@ const locationButtonStyle = css({
 
 const copyLinkButtonStyle = css({
   alignItems: "center",
-  background: "#ffffff",
-  border: "1px solid #cbd5c8",
+  background: "var(--ui-control-bg)",
+  border: "1px solid var(--ui-control-border)",
   borderRadius: "8px",
-  color: "#25302b",
+  color: "var(--ui-text)",
   cursor: "pointer",
   display: "inline-flex",
   font: "inherit",
@@ -360,11 +422,11 @@ const copyLinkButtonStyle = css({
     "background 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease",
   whiteSpace: "nowrap",
   "&:hover:not(:disabled)": {
-    background: "#eef3eb",
-    borderColor: "#9fab98",
+    background: "var(--ui-control-hover-bg)",
+    borderColor: "var(--ui-control-hover-border)",
   },
   "&:focus-visible": {
-    outline: "3px solid rgba(86, 160, 200, 0.4)",
+    outline: "3px solid var(--ui-focus)",
     outlineOffset: "2px",
   },
   "&:disabled": {
@@ -374,11 +436,14 @@ const copyLinkButtonStyle = css({
 });
 
 const statusCardStyle = css({
-  background: "#ffffff",
-  border: "1px solid #dce3d8",
+  background: "var(--ui-card-bg)",
+  backdropFilter: "blur(18px) saturate(1.15)",
+  border: "1px solid var(--ui-card-border)",
   borderRadius: "8px",
-  boxShadow: "0 16px 40px rgba(35, 52, 43, 0.08)",
+  boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",
   padding: "18px",
+  position: "relative",
+  zIndex: 1,
 });
 
 const statusHeaderStyle = css({
@@ -405,14 +470,14 @@ const statusLabelStyle = css({
 });
 
 const statusDetailStyle = css({
-  color: "#617068",
+  color: "var(--ui-text-muted)",
   fontSize: "13px",
   lineHeight: 1.4,
   margin: "4px 0 0",
 });
 
 const factsStyle = css({
-  borderTop: "1px solid #edf1ea",
+  borderTop: "1px solid var(--ui-status-divider)",
   display: "grid",
   gap: "10px",
   margin: "18px 0 0",
@@ -422,7 +487,7 @@ const factsStyle = css({
     gap: "4px",
   },
   "& dt": {
-    color: "#6a756e",
+    color: "var(--ui-label)",
     fontSize: "11px",
     fontWeight: 800,
     letterSpacing: "0.07em",
@@ -433,7 +498,7 @@ const factsStyle = css({
     cursor: "help",
   },
   "& dd": {
-    color: "#222d28",
+    color: "var(--ui-text)",
     fontSize: "13px",
     lineHeight: 1.35,
     margin: 0,
@@ -451,19 +516,22 @@ const scrubberHeaderStyle = css({
   display: "flex",
   justifyContent: "space-between",
   "& label": {
-    color: "#34413b",
+    color: "var(--ui-label)",
     fontSize: "13px",
     fontWeight: 800,
   },
   "& output": {
+    color: "var(--ui-text)",
     fontVariantNumeric: "tabular-nums",
     fontWeight: 800,
   },
 });
 
 const windowsStyle = css({
-  background: "#dfe5db",
+  background: "var(--ui-window-bg)",
+  border: "1px solid var(--ui-control-border)",
   borderRadius: "999px",
+  boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",
   height: "14px",
   overflow: "hidden",
   position: "relative",

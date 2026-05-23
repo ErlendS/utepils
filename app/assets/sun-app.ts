@@ -64,6 +64,33 @@ type SkyStop = {
 
 type SkyTheme = Omit<SkyStop, 'altitudeDeg'>
 
+type Rgb = { b: number; g: number; r: number }
+
+type UiTheme = {
+  brandText: string
+  buttonBg: string
+  buttonBorder: string
+  buttonHoverBg: string
+  buttonHoverBorder: string
+  buttonText: string
+  cardBg: string
+  cardBorder: string
+  cardHighlight: string
+  controlBg: string
+  controlBorder: string
+  controlHoverBg: string
+  controlHoverBorder: string
+  divider: string
+  errorText: string
+  focus: string
+  label: string
+  logoShadow: string
+  statusDivider: string
+  text: string
+  textMuted: string
+  windowBg: string
+}
+
 type MarkerDragHandle = HTMLElement & {
   hasPointerCapture(pointerId: number): boolean
   releasePointerCapture(pointerId: number): void
@@ -320,6 +347,7 @@ async function setupPlaceSearch(origin: google.maps.LatLngLiteral) {
   })
 
   els.placeSearch.replaceChildren(placeAutocomplete)
+  syncPlaceAutocompleteStyles()
 }
 
 function setPlaceSearchMessage(message = '') {
@@ -587,6 +615,7 @@ function animateSkyTheme(time: number) {
 
 function writeSkyTheme(theme: SkyTheme) {
   let bodyStyle = document.body.style
+  let uiTheme = getUiTheme(theme)
 
   bodyStyle.setProperty('--sky-top', theme.top)
   bodyStyle.setProperty('--sky-mid', theme.mid)
@@ -601,6 +630,7 @@ function writeSkyTheme(theme: SkyTheme) {
     `linear-gradient(180deg, ${hexToRgba(theme.mapTop, 0.72)}, ${hexToRgba(theme.mapBottom, 0.42)})`,
   )
   bodyStyle.setProperty('--map-sky-opacity', String(theme.overlayOpacity))
+  writeUiTheme(uiTheme)
 }
 
 function mixSkyTheme(from: SkyTheme, to: SkyTheme, amount: number): SkyTheme {
@@ -614,6 +644,117 @@ function mixSkyTheme(from: SkyTheme, to: SkyTheme, amount: number): SkyTheme {
     overlayOpacity: mixNumber(from.overlayOpacity, to.overlayOpacity, amount),
     starOpacity: mixNumber(from.starOpacity, to.starOpacity, amount),
     top: mixHex(from.top, to.top, amount),
+  }
+}
+
+function getUiTheme(theme: SkyTheme): UiTheme {
+  let brightness =
+    perceivedBrightness(theme.top) * 0.28 +
+    perceivedBrightness(theme.mid) * 0.44 +
+    perceivedBrightness(theme.bottom) * 0.28
+  let darkAmount = smoothstep((152 - brightness) / 76)
+  let warmAmount = clamp01((colorWarmth(theme.bottom) + colorWarmth(theme.mid)) / 210)
+  let middleContrast = smoothstep(1 - Math.abs(brightness - 164) / 76)
+  let twilightTextBoost = smoothstep((warmAmount - 0.18) / 0.36) * smoothstep((166 - brightness) / 34)
+  let rawTextAmount = Math.max(smoothstep((156 - brightness) / 30), twilightTextBoost)
+  let textAmount = smoothstep((rawTextAmount - 0.44) / 0.12)
+  let surfaceAmount = Math.max(darkAmount, textAmount * 0.82)
+  let glassAlpha = Math.min(0.56, mixNumber(0.24, 0.4, surfaceAmount) + middleContrast * 0.08)
+  let controlAlpha = Math.min(0.58, mixNumber(0.24, 0.44, surfaceAmount) + middleContrast * 0.08)
+  let borderAlpha = Math.min(0.66, mixNumber(0.36, 0.52, surfaceAmount) + middleContrast * 0.1)
+  let hoverAlpha = Math.min(0.66, mixNumber(0.34, 0.54, surfaceAmount) + middleContrast * 0.08)
+
+  return {
+    brandText: mixHex('#31413a', '#f6f1e8', textAmount),
+    buttonBg: mixHex('#17201d', '#f6f1e8', textAmount),
+    buttonBorder: mixHex('#17201d', '#f6f1e8', textAmount),
+    buttonHoverBg: mixHex('#2a3832', '#ffffff', textAmount),
+    buttonHoverBorder: mixHex('#2a3832', '#ffffff', textAmount),
+    buttonText: mixHex('#f8faf6', '#142034', textAmount),
+    cardBg: hexToRgba(mixHex('#ffffff', '#071226', surfaceAmount), glassAlpha),
+    cardBorder: hexToRgba(mixHex('#ffffff', '#d8e5ff', surfaceAmount), borderAlpha),
+    cardHighlight: hexToRgba('#ffffff', mixNumber(0.2, 0.14, surfaceAmount)),
+    controlBg: hexToRgba(mixHex('#ffffff', '#071226', surfaceAmount), controlAlpha),
+    controlBorder: hexToRgba(mixHex('#ffffff', '#d8e5ff', surfaceAmount), borderAlpha),
+    controlHoverBg: hexToRgba(mixHex('#ffffff', '#0f213b', surfaceAmount), hoverAlpha),
+    controlHoverBorder: hexToRgba(mixHex('#ffffff', '#ffffff', surfaceAmount), hoverAlpha),
+    divider: hexToRgba(mixHex('#d7ddd2', '#dce8ff', surfaceAmount), mixNumber(0.76, 0.38, surfaceAmount)),
+    errorText: mixHex('#b14242', '#ffd0d0', darkAmount),
+    focus: hexToRgba(mixHex('#56a0c8', '#ffe19a', warmAmount * 0.45 + darkAmount * 0.25), 0.46),
+    label: mixHex('#34413b', '#dbe8f8', textAmount),
+    logoShadow: hexToRgba(mixHex('#f5b93f', '#ffd98a', surfaceAmount), mixNumber(0.25, 0.36, surfaceAmount)),
+    statusDivider: hexToRgba(mixHex('#edf1ea', '#dce8ff', surfaceAmount), mixNumber(0.82, 0.28, surfaceAmount)),
+    text: mixHex('#17201d', '#fbf7ef', textAmount),
+    textMuted: mixHex('#4f5c55', '#cfdbeb', textAmount),
+    windowBg: hexToRgba(mixHex('#dfe5db', '#0b1830', surfaceAmount), mixNumber(0.72, 0.42, surfaceAmount)),
+  }
+}
+
+function writeUiTheme(theme: UiTheme) {
+  let bodyStyle = document.body.style
+
+  bodyStyle.setProperty('--ui-brand-text', theme.brandText)
+  bodyStyle.setProperty('--ui-button-bg', theme.buttonBg)
+  bodyStyle.setProperty('--ui-button-border', theme.buttonBorder)
+  bodyStyle.setProperty('--ui-button-hover-bg', theme.buttonHoverBg)
+  bodyStyle.setProperty('--ui-button-hover-border', theme.buttonHoverBorder)
+  bodyStyle.setProperty('--ui-button-text', theme.buttonText)
+  bodyStyle.setProperty('--ui-card-bg', theme.cardBg)
+  bodyStyle.setProperty('--ui-card-border', theme.cardBorder)
+  bodyStyle.setProperty('--ui-card-highlight', theme.cardHighlight)
+  bodyStyle.setProperty('--ui-control-bg', theme.controlBg)
+  bodyStyle.setProperty('--ui-control-border', theme.controlBorder)
+  bodyStyle.setProperty('--ui-control-hover-bg', theme.controlHoverBg)
+  bodyStyle.setProperty('--ui-control-hover-border', theme.controlHoverBorder)
+  bodyStyle.setProperty('--ui-divider', theme.divider)
+  bodyStyle.setProperty('--ui-error-text', theme.errorText)
+  bodyStyle.setProperty('--ui-focus', theme.focus)
+  bodyStyle.setProperty('--ui-label', theme.label)
+  bodyStyle.setProperty('--ui-logo-shadow', theme.logoShadow)
+  bodyStyle.setProperty('--ui-status-divider', theme.statusDivider)
+  bodyStyle.setProperty('--ui-text', theme.text)
+  bodyStyle.setProperty('--ui-text-muted', theme.textMuted)
+  bodyStyle.setProperty('--ui-window-bg', theme.windowBg)
+  syncPlaceAutocompleteStyles(theme)
+}
+
+function syncPlaceAutocompleteStyles(theme?: UiTheme) {
+  let bodyStyle = getComputedStyle(document.body)
+  let text = theme?.text ?? bodyStyle.getPropertyValue('--ui-text').trim()
+  let placeholder = theme?.textMuted ?? bodyStyle.getPropertyValue('--ui-text-muted').trim()
+
+  for (let element of document.querySelectorAll<HTMLElement>('gmp-place-autocomplete')) {
+    element.style.setProperty('--utepils-place-text', text)
+    element.style.setProperty('--utepils-place-placeholder', placeholder)
+
+    let root = element.shadowRoot
+    if (!root || root.querySelector('#utepils-place-autocomplete-style')) continue
+
+    let style = document.createElement('style')
+    style.id = 'utepils-place-autocomplete-style'
+    style.textContent = `
+      input,
+      textarea,
+      [part~="input"] {
+        color: var(--utepils-place-text) !important;
+      }
+
+      input::placeholder,
+      textarea::placeholder,
+      [part~="input"]::placeholder,
+      input::-webkit-input-placeholder,
+      textarea::-webkit-input-placeholder,
+      input::-moz-placeholder,
+      textarea::-moz-placeholder,
+      input:-ms-input-placeholder,
+      textarea:-ms-input-placeholder,
+      input::-ms-input-placeholder,
+      textarea::-ms-input-placeholder {
+        color: var(--utepils-place-placeholder) !important;
+        opacity: 1 !important;
+      }
+    `
+    root.append(style)
   }
 }
 
@@ -1620,7 +1761,17 @@ function mixHex(from: string, to: string, amount: number) {
   })
 }
 
-function hexToRgb(hex: string) {
+function perceivedBrightness(hex: string) {
+  let rgb = hexToRgb(hex)
+  return Math.sqrt(0.241 * rgb.r * rgb.r + 0.691 * rgb.g * rgb.g + 0.068 * rgb.b * rgb.b)
+}
+
+function colorWarmth(hex: string) {
+  let rgb = hexToRgb(hex)
+  return rgb.r - rgb.b
+}
+
+function hexToRgb(hex: string): Rgb {
   let value = Number.parseInt(hex.slice(1), 16)
   return {
     b: value & 255,
@@ -1629,7 +1780,7 @@ function hexToRgb(hex: string) {
   }
 }
 
-function rgbToHex(rgb: { b: number; g: number; r: number }) {
+function rgbToHex(rgb: Rgb) {
   let value = (rgb.r << 16) + (rgb.g << 8) + rgb.b
   return `#${value.toString(16).padStart(6, '0')}`
 }
