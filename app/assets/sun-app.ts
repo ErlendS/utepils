@@ -74,6 +74,7 @@ let sunAngleDragMinute: number | undefined
 let markerDragMapOptions: google.maps.MapOptions | undefined
 
 const els = {
+  copyLink: document.querySelector<HTMLButtonElement>('#copy-link-button')!,
   dot: document.querySelector<HTMLElement>('#status-dot')!,
   dsm: document.querySelector<HTMLElement>('#dsm-readout')!,
   label: document.querySelector<HTMLElement>('#status-label')!,
@@ -138,6 +139,9 @@ async function bootstrap() {
   })
   els.useLocation.addEventListener('click', () => {
     void useCurrentLocation()
+  })
+  els.copyLink.addEventListener('click', () => {
+    void copyShareableLink()
   })
 
   void setupPlaceSearch(config.city).catch((error) => {
@@ -285,10 +289,31 @@ function updateShareablePointUrl(point: google.maps.LatLngLiteral) {
   url.searchParams.set('lat', formatCoordinate(point.lat))
   url.searchParams.set('lng', formatCoordinate(point.lng))
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+  els.copyLink.disabled = false
+  els.copyLink.textContent = 'Copy link'
 }
 
 function formatCoordinate(coordinate: number) {
   return coordinate.toFixed(6).replace(/\.?0+$/, '')
+}
+
+async function copyShareableLink() {
+  if (!selectedPoint || els.copyLink.disabled) return
+
+  let previousText = 'Copy link'
+  els.copyLink.disabled = true
+
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    els.copyLink.textContent = 'Copied'
+  } catch {
+    els.copyLink.textContent = 'Copy failed'
+  } finally {
+    window.setTimeout(() => {
+      els.copyLink.textContent = previousText
+      els.copyLink.disabled = !selectedPoint
+    }, 1400)
+  }
 }
 
 async function selectPoint(point: google.maps.LatLngLiteral) {

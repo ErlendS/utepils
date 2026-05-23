@@ -105,6 +105,21 @@ export function SunPage() {
                   </dt>
                   <dd id="dsm-readout">Waiting</dd>
                 </div>
+                <div>
+                  <dt title="Copy a link to this selected map point.">
+                    Share location
+                  </dt>
+                  <dd>
+                    <button
+                      id="copy-link-button"
+                      type="button"
+                      mix={copyLinkButtonStyle}
+                      disabled
+                    >
+                      None selected
+                    </button>
+                  </dd>
+                </div>
               </dl>
             </section>
 
@@ -274,6 +289,38 @@ const locationButtonStyle = css({
   "&:disabled": {
     cursor: "wait",
     opacity: 0.68,
+  },
+});
+
+const copyLinkButtonStyle = css({
+  alignItems: "center",
+  background: "#ffffff",
+  border: "1px solid #cbd5c8",
+  borderRadius: "8px",
+  color: "#25302b",
+  cursor: "pointer",
+  display: "inline-flex",
+  font: "inherit",
+  fontSize: "13px",
+  fontWeight: 800,
+  justifyContent: "center",
+  minHeight: "34px",
+  minWidth: "112px",
+  padding: "0 12px",
+  transition:
+    "background 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease",
+  whiteSpace: "nowrap",
+  "&:hover:not(:disabled)": {
+    background: "#eef3eb",
+    borderColor: "#9fab98",
+  },
+  "&:focus-visible": {
+    outline: "3px solid rgba(86, 160, 200, 0.4)",
+    outlineOffset: "2px",
+  },
+  "&:disabled": {
+    cursor: "not-allowed",
+    opacity: 0.54,
   },
 });
 
