@@ -42,6 +42,28 @@ type SunWindow = { end: number; start: number }
 
 type SunAngleSample = { azimuthDeg: number; minute: number }
 
+type SunReading = {
+  altitude: number
+  azimuthDeg: number
+  horizonAltitude: number
+  inSun: boolean
+}
+
+type SkyStop = {
+  altitudeDeg: number
+  bottom: string
+  glowAlpha: number
+  glowColor: string
+  mapBottom: string
+  mapTop: string
+  mid: string
+  overlayOpacity: number
+  starOpacity: number
+  top: string
+}
+
+type SkyTheme = Omit<SkyStop, 'altitudeDeg'>
+
 type MarkerDragHandle = HTMLElement & {
   hasPointerCapture(pointerId: number): boolean
   releasePointerCapture(pointerId: number): void
@@ -62,6 +84,95 @@ class HttpError extends Error {
   }
 }
 
+const SKY_STOPS: SkyStop[] = [
+  {
+    altitudeDeg: -18,
+    bottom: '#101d33',
+    glowAlpha: 0.08,
+    glowColor: '#aebeea',
+    mapBottom: '#050914',
+    mapTop: '#10203a',
+    mid: '#0a1830',
+    overlayOpacity: 0.42,
+    starOpacity: 0.9,
+    top: '#06101f',
+  },
+  {
+    altitudeDeg: -8,
+    bottom: '#6c5d8a',
+    glowAlpha: 0.18,
+    glowColor: '#d88fe4',
+    mapBottom: '#1a1230',
+    mapTop: '#1f2a55',
+    mid: '#26315d',
+    overlayOpacity: 0.35,
+    starOpacity: 0.5,
+    top: '#101d3f',
+  },
+  {
+    altitudeDeg: -2,
+    bottom: '#f1a263',
+    glowAlpha: 0.42,
+    glowColor: '#ffb25f',
+    mapBottom: '#a8425c',
+    mapTop: '#405884',
+    mid: '#b06991',
+    overlayOpacity: 0.28,
+    starOpacity: 0.15,
+    top: '#32477d',
+  },
+  {
+    altitudeDeg: 3,
+    bottom: '#ffd07b',
+    glowAlpha: 0.7,
+    glowColor: '#ff994e',
+    mapBottom: '#e78c47',
+    mapTop: '#6789b8',
+    mid: '#e08294',
+    overlayOpacity: 0.22,
+    starOpacity: 0,
+    top: '#5578b5',
+  },
+  {
+    altitudeDeg: 9,
+    bottom: '#ffe4a8',
+    glowAlpha: 0.58,
+    glowColor: '#ffc45f',
+    mapBottom: '#f3c76d',
+    mapTop: '#83b8dd',
+    mid: '#f4c879',
+    overlayOpacity: 0.13,
+    starOpacity: 0,
+    top: '#6aaedf',
+  },
+  {
+    altitudeDeg: 22,
+    bottom: '#dbefff',
+    glowAlpha: 0.35,
+    glowColor: '#ffdc86',
+    mapBottom: '#f7dd97',
+    mapTop: '#73b7e6',
+    mid: '#98cdf0',
+    overlayOpacity: 0.08,
+    starOpacity: 0,
+    top: '#5eabdf',
+  },
+  {
+    altitudeDeg: 90,
+    bottom: '#d9f3ff',
+    glowAlpha: 0.26,
+    glowColor: '#fff0aa',
+    mapBottom: '#e5f0c7',
+    mapTop: '#5fb4e8',
+    mid: '#7ec8ef',
+    overlayOpacity: 0.06,
+    starOpacity: 0,
+    top: '#3b9cda',
+  },
+]
+
+const SKY_TRANSITION_MS = 1250
+
 let map: google.maps.Map
 let marker: SunMarkerOverlay | undefined
 let selectedSunAngleSamples: SunAngleSample[] = []
@@ -69,6 +180,10 @@ let selectedProfile: HorizonResponse | undefined
 let selectedPoint: google.maps.LatLngLiteral | undefined
 let selectPointController: AbortController | undefined
 let suppressMapClickUntil = 0
+let ambientSkyPoint: google.maps.LatLngLiteral | undefined
+let renderedSkyTheme: SkyTheme | undefined
+let skyAnimationFrame: number | undefined
+let skyTransition: { from: SkyTheme; startedAt: number; to: SkyTheme } | undefined
 let sunAngleDragAzimuth: number | undefined
 let sunAngleDragMinute: number | undefined
 let markerDragMapOptions: google.maps.MapOptions | undefined
@@ -119,6 +234,8 @@ async function bootstrap() {
   els.slider.addEventListener('input', () => updateForCurrentTime())
 
   let config = await fetchWithRetry<ConfigResponse>('/api/config', 3, 1500)
+  ambientSkyPoint = config.city
+  updateForCurrentTime()
   await loadGoogleMaps(config.googleMapsApiKey)
 
   map = new google.maps.Map(els.map, {
@@ -363,9 +480,18 @@ function updateForCurrentTime() {
   let time = dateForMinutes(minutes)
   els.time.textContent = formatTime(time)
 
+  let skyReading = selectedProfile
+    ? readSun(selectedProfile, time)
+    : selectedPoint
+      ? readSkySun(selectedPoint, time)
+      : ambientSkyPoint
+        ? readSkySun(ambientSkyPoint, time)
+        : undefined
+  if (skyReading) applySkyTheme(skyReading)
+
   if (!selectedProfile || !selectedPoint) return
 
-  let reading = readSun(selectedProfile, time)
+  let reading = skyReading ?? readSun(selectedProfile, time)
   setMarker(selectedPoint, reading.inSun ? 'sun' : 'shade')
   marker?.setSunAngle(reading.azimuthDeg)
   setStatus(
@@ -377,7 +503,7 @@ function updateForCurrentTime() {
   )
 }
 
-function readSun(profile: HorizonResponse, time: Date) {
+function readSun(profile: HorizonResponse, time: Date): SunReading {
   let sun = getSunPosition(time, profile.lat, profile.lng)
   let azimuthDeg = ((toDegrees(sun.azimuth) + 180 + 360) % 360)
   let horizonAltitude = profile.horizon[Math.round(azimuthDeg) % 360] ?? Math.PI / 2
@@ -389,6 +515,133 @@ function readSun(profile: HorizonResponse, time: Date) {
     horizonAltitude,
     inSun,
   }
+}
+
+function readSkySun(point: google.maps.LatLngLiteral, time: Date): SunReading {
+  let sun = getSunPosition(time, point.lat, point.lng)
+  let azimuthDeg = ((toDegrees(sun.azimuth) + 180 + 360) % 360)
+
+  return {
+    altitude: sun.altitude,
+    azimuthDeg,
+    horizonAltitude: 0,
+    inSun: sun.altitude > 0,
+  }
+}
+
+function applySkyTheme(reading: SunReading) {
+  let targetTheme = getSkyTheme(reading)
+  if (!renderedSkyTheme) {
+    renderedSkyTheme = targetTheme
+    writeSkyTheme(targetTheme)
+    return
+  }
+
+  skyTransition = {
+    from: renderedSkyTheme,
+    startedAt: performance.now(),
+    to: targetTheme,
+  }
+  if (skyAnimationFrame === undefined) {
+    skyAnimationFrame = requestAnimationFrame(animateSkyTheme)
+  }
+}
+
+function getSkyTheme(reading: SunReading): SkyTheme {
+  let altitudeDeg = toDegrees(reading.altitude)
+  let horizonDeg = toDegrees(reading.horizonAltitude)
+  let clearanceDeg = altitudeDeg - Math.max(0, horizonDeg)
+  let stop = interpolateSkyStop(altitudeDeg)
+  let horizonShade = altitudeDeg > 0 && clearanceDeg < 0 ? clamp01(Math.abs(clearanceDeg) / 12) : 0
+
+  return {
+    bottom: horizonShade > 0 ? mixHex(stop.bottom, '#c5d3d8', horizonShade * 0.28) : stop.bottom,
+    glowAlpha: stop.glowAlpha * (1 - horizonShade * 0.58),
+    glowColor: stop.glowColor,
+    mapBottom: stop.mapBottom,
+    mapTop: stop.mapTop,
+    mid: horizonShade > 0 ? mixHex(stop.mid, '#6f8da3', horizonShade * 0.35) : stop.mid,
+    overlayOpacity: Math.min(0.52, stop.overlayOpacity + horizonShade * 0.08),
+    starOpacity: stop.starOpacity,
+    top: horizonShade > 0 ? mixHex(stop.top, '#2b4f70', horizonShade * 0.45) : stop.top,
+  }
+}
+
+function animateSkyTheme(time: number) {
+  skyAnimationFrame = undefined
+  if (!skyTransition) return
+
+  let amount = smoothstep((time - skyTransition.startedAt) / SKY_TRANSITION_MS)
+  renderedSkyTheme = mixSkyTheme(skyTransition.from, skyTransition.to, amount)
+  writeSkyTheme(renderedSkyTheme)
+
+  if (amount < 1) {
+    skyAnimationFrame = requestAnimationFrame(animateSkyTheme)
+    return
+  }
+
+  renderedSkyTheme = skyTransition.to
+  writeSkyTheme(renderedSkyTheme)
+  skyTransition = undefined
+}
+
+function writeSkyTheme(theme: SkyTheme) {
+  let bodyStyle = document.body.style
+
+  bodyStyle.setProperty('--sky-top', theme.top)
+  bodyStyle.setProperty('--sky-mid', theme.mid)
+  bodyStyle.setProperty('--sky-bottom', theme.bottom)
+  bodyStyle.setProperty(
+    '--sky-glow',
+    hexToRgba(theme.glowColor, theme.glowAlpha),
+  )
+  bodyStyle.setProperty('--sky-star-opacity', String(theme.starOpacity))
+  bodyStyle.setProperty(
+    '--map-sky-gradient',
+    `linear-gradient(180deg, ${hexToRgba(theme.mapTop, 0.72)}, ${hexToRgba(theme.mapBottom, 0.42)})`,
+  )
+  bodyStyle.setProperty('--map-sky-opacity', String(theme.overlayOpacity))
+}
+
+function mixSkyTheme(from: SkyTheme, to: SkyTheme, amount: number): SkyTheme {
+  return {
+    bottom: mixHex(from.bottom, to.bottom, amount),
+    glowAlpha: mixNumber(from.glowAlpha, to.glowAlpha, amount),
+    glowColor: mixHex(from.glowColor, to.glowColor, amount),
+    mapBottom: mixHex(from.mapBottom, to.mapBottom, amount),
+    mapTop: mixHex(from.mapTop, to.mapTop, amount),
+    mid: mixHex(from.mid, to.mid, amount),
+    overlayOpacity: mixNumber(from.overlayOpacity, to.overlayOpacity, amount),
+    starOpacity: mixNumber(from.starOpacity, to.starOpacity, amount),
+    top: mixHex(from.top, to.top, amount),
+  }
+}
+
+function interpolateSkyStop(altitudeDeg: number): SkyStop {
+  let first = SKY_STOPS[0]!
+  if (altitudeDeg <= first.altitudeDeg) return first
+
+  for (let i = 1; i < SKY_STOPS.length; i++) {
+    let previous = SKY_STOPS[i - 1]!
+    let next = SKY_STOPS[i]!
+    if (altitudeDeg <= next.altitudeDeg) {
+      let amount = smoothstep((altitudeDeg - previous.altitudeDeg) / (next.altitudeDeg - previous.altitudeDeg))
+      return {
+        altitudeDeg,
+        bottom: mixHex(previous.bottom, next.bottom, amount),
+        glowAlpha: mixNumber(previous.glowAlpha, next.glowAlpha, amount),
+        glowColor: mixHex(previous.glowColor, next.glowColor, amount),
+        mapBottom: mixHex(previous.mapBottom, next.mapBottom, amount),
+        mapTop: mixHex(previous.mapTop, next.mapTop, amount),
+        mid: mixHex(previous.mid, next.mid, amount),
+        overlayOpacity: mixNumber(previous.overlayOpacity, next.overlayOpacity, amount),
+        starOpacity: mixNumber(previous.starOpacity, next.starOpacity, amount),
+        top: mixHex(previous.top, next.top, amount),
+      }
+    }
+  }
+
+  return SKY_STOPS[SKY_STOPS.length - 1]!
 }
 
 function updateSunWindows() {
@@ -1344,12 +1597,46 @@ function toDegrees(radians: number) {
   return (radians * 180) / Math.PI
 }
 
-function hexToRgba(hex: string, alpha: number) {
+function clamp01(value: number) {
+  return Math.min(1, Math.max(0, value))
+}
+
+function smoothstep(value: number) {
+  let amount = clamp01(value)
+  return amount * amount * (3 - 2 * amount)
+}
+
+function mixNumber(from: number, to: number, amount: number) {
+  return from + (to - from) * amount
+}
+
+function mixHex(from: string, to: string, amount: number) {
+  let fromRgb = hexToRgb(from)
+  let toRgb = hexToRgb(to)
+  return rgbToHex({
+    b: Math.round(mixNumber(fromRgb.b, toRgb.b, amount)),
+    g: Math.round(mixNumber(fromRgb.g, toRgb.g, amount)),
+    r: Math.round(mixNumber(fromRgb.r, toRgb.r, amount)),
+  })
+}
+
+function hexToRgb(hex: string) {
   let value = Number.parseInt(hex.slice(1), 16)
-  let r = (value >> 16) & 255
-  let g = (value >> 8) & 255
-  let b = value & 255
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  return {
+    b: value & 255,
+    g: (value >> 8) & 255,
+    r: (value >> 16) & 255,
+  }
+}
+
+function rgbToHex(rgb: { b: number; g: number; r: number }) {
+  let value = (rgb.r << 16) + (rgb.g << 8) + rgb.b
+  return `#${value.toString(16).padStart(6, '0')}`
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  let rgb = hexToRgb(hex)
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`
 }
 
 function getSunPosition(date: Date, lat: number, lng: number) {

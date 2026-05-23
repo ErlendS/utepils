@@ -43,6 +43,9 @@ export function SunPage() {
         ></script>
       </head>
       <body mix={pageStyle}>
+        <div id="sky-backdrop" mix={skyBackdropStyle} aria-hidden="true">
+          <div mix={skyStarsStyle}></div>
+        </div>
         <div id="app-shell" mix={shellStyle}>
           <aside mix={panelStyle}>
             <div>
@@ -148,6 +151,7 @@ export function SunPage() {
 
           <main mix={mapWrapStyle}>
             <div id="map" mix={mapStyle}></div>
+            <div id="map-sky-overlay" mix={mapSkyOverlayStyle}></div>
             <div id="map-toast" mix={toastStyle} role="alert"></div>
           </main>
         </div>
@@ -157,18 +161,64 @@ export function SunPage() {
 }
 
 const pageStyle = css({
+  "--map-sky-gradient":
+    "linear-gradient(180deg, rgba(115, 183, 230, 0.1), rgba(247, 221, 151, 0.02))",
+  "--map-sky-opacity": "0.12",
+  "--sky-bottom": "#dbefff",
+  "--sky-glow": "rgba(255, 220, 134, 0.4)",
+  "--sky-mid": "#98cdf0",
+  "--sky-star-opacity": "0",
+  "--sky-top": "#5eabdf",
   margin: 0,
   minHeight: "100vh",
-  background: "#eef1ed",
+  background: "var(--sky-bottom)",
   color: "#17201d",
   fontFamily: FONT_STACK,
   "& *, & *::before, & *::after": { boxSizing: "border-box" },
+});
+
+const skyBackdropStyle = css({
+  background:
+    "linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 48%, var(--sky-bottom) 100%)",
+  inset: 0,
+  overflow: "hidden",
+  pointerEvents: "none",
+  position: "fixed",
+  zIndex: 0,
+  "&::before": {
+    background:
+      "radial-gradient(circle at 72% 18%, var(--sky-glow) 0 8%, rgba(255, 255, 255, 0) 28%)",
+    content: '""',
+    inset: 0,
+    opacity: 0.9,
+    position: "absolute",
+  },
+});
+
+const skyStarsStyle = css({
+  animation: "sky-stars-flicker 4.8s ease-in-out infinite",
+  backgroundImage:
+    "radial-gradient(circle at 8% 18%, rgba(255, 255, 255, 0.9) 0 1px, transparent 1.7px), radial-gradient(circle at 18% 72%, rgba(255, 255, 255, 0.72) 0 1px, transparent 1.6px), radial-gradient(circle at 33% 28%, rgba(255, 255, 255, 0.86) 0 1px, transparent 1.8px), radial-gradient(circle at 47% 12%, rgba(255, 255, 255, 0.68) 0 1px, transparent 1.5px), radial-gradient(circle at 59% 62%, rgba(255, 255, 255, 0.82) 0 1px, transparent 1.7px), radial-gradient(circle at 73% 34%, rgba(255, 255, 255, 0.76) 0 1px, transparent 1.6px), radial-gradient(circle at 84% 78%, rgba(255, 255, 255, 0.9) 0 1px, transparent 1.7px), radial-gradient(circle at 93% 22%, rgba(255, 255, 255, 0.66) 0 1px, transparent 1.5px)",
+  backgroundSize: "280px 220px",
+  inset: 0,
+  opacity: "var(--sky-star-opacity)",
+  position: "absolute",
+  "@media (prefers-reduced-motion: reduce)": {
+    animation: "none",
+  },
+  "@keyframes sky-stars-flicker": {
+    "0%, 100%": { opacity: "calc(var(--sky-star-opacity) * 0.82)" },
+    "42%": { opacity: "var(--sky-star-opacity)" },
+    "68%": { opacity: "calc(var(--sky-star-opacity) * 0.68)" },
+  },
 });
 
 const shellStyle = css({
   display: "grid",
   gridTemplateColumns: "minmax(0, 380px) minmax(0, 1fr)",
   minHeight: "100vh",
+  position: "relative",
+  zIndex: 1,
   "@media (max-width: 860px)": {
     gridTemplateColumns: "1fr",
     gridTemplateRows: "auto minmax(min(520px, 90vh), 90vh)",
@@ -176,8 +226,7 @@ const shellStyle = css({
 });
 
 const panelStyle = css({
-  background: "#f8faf6",
-  borderRight: "1px solid #d7ddd2",
+  background: "transparent",
   display: "flex",
   flexDirection: "column",
   gap: "24px",
@@ -442,6 +491,16 @@ const mapStyle = css({
   },
 });
 
+const mapSkyOverlayStyle = css({
+  background: "var(--map-sky-gradient)",
+  inset: 0,
+  mixBlendMode: "multiply",
+  opacity: "var(--map-sky-opacity)",
+  pointerEvents: "none",
+  position: "absolute",
+  zIndex: 1,
+});
+
 const toastStyle = css({
   background: "#17201d",
   borderRadius: "8px",
@@ -455,4 +514,5 @@ const toastStyle = css({
   pointerEvents: "none",
   position: "absolute",
   transition: "opacity 160ms ease",
+  zIndex: 2,
 });
