@@ -171,7 +171,7 @@ const shellStyle = css({
   minHeight: "100vh",
   "@media (max-width: 860px)": {
     gridTemplateColumns: "1fr",
-    gridTemplateRows: "auto minmax(520px, 1fr)",
+    gridTemplateRows: "auto minmax(min(520px, 90vh), 90vh)",
   },
 });
 
@@ -423,13 +423,23 @@ const windowsStyle = css({
 const mapWrapStyle = css({
   minWidth: 0,
   minHeight: "100vh",
+  overscrollBehavior: "contain",
   position: "relative",
+  touchAction: "none",
+  "@media (max-width: 860px)": {
+    height: "90vh",
+    minHeight: "min(520px, 90vh)",
+  },
 });
 
 const mapStyle = css({
   height: "100%",
   minHeight: "100vh",
+  touchAction: "none",
   width: "100%",
+  "@media (max-width: 860px)": {
+    minHeight: "100%",
+  },
 });
 
 const toastStyle = css({
