@@ -143,7 +143,15 @@ async function bootstrap() {
   void setupPlaceSearch(config.city).catch((error) => {
     setPlaceSearchMessage(error instanceof Error ? error.message : 'Address search is unavailable.')
   })
-  updateForCurrentTime()
+
+  let sharedPoint = pointFromSearchParams()
+  if (sharedPoint) {
+    map.setCenter(sharedPoint)
+    map.setZoom(Math.max(map.getZoom() ?? 0, 17))
+    void selectPoint(sharedPoint)
+  } else {
+    updateForCurrentTime()
+  }
 }
 
 async function setupPlaceSearch(origin: google.maps.LatLngLiteral) {
@@ -255,12 +263,41 @@ function isGeolocationError(error: unknown): error is GeolocationPositionError {
   return Boolean(error && typeof error === 'object' && 'code' in error && typeof error.code === 'number')
 }
 
+function pointFromSearchParams() {
+  let params = new URLSearchParams(window.location.search)
+  let lat = parseCoordinate(params.get('lat'))
+  let lng = parseCoordinate(params.get('lng'))
+  if (lat === undefined || lng === undefined) return undefined
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return undefined
+
+  return { lat, lng }
+}
+
+function parseCoordinate(value: string | null) {
+  if (!value) return undefined
+
+  let coordinate = Number(value)
+  return Number.isFinite(coordinate) ? coordinate : undefined
+}
+
+function updateShareablePointUrl(point: google.maps.LatLngLiteral) {
+  let url = new URL(window.location.href)
+  url.searchParams.set('lat', formatCoordinate(point.lat))
+  url.searchParams.set('lng', formatCoordinate(point.lng))
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+function formatCoordinate(coordinate: number) {
+  return coordinate.toFixed(6).replace(/\.?0+$/, '')
+}
+
 async function selectPoint(point: google.maps.LatLngLiteral) {
   selectPointController?.abort()
   selectPointController = new AbortController()
   const signal = selectPointController.signal
 
   selectedPoint = point
+  updateShareablePointUrl(point)
   selectedProfile = undefined
   selectedSunAngleSamples = []
   setMarker(point, 'loading')
@@ -276,6 +313,7 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
     selectedProfile = profile
     selectedSunAngleSamples = getSunAngleSamples(profile)
     selectedPoint = { lat: profile.lat, lng: profile.lng }
+    updateShareablePointUrl(selectedPoint)
     els.dsm.textContent = profile.dsm
       ? `${profile.dsm.imageryQuality ?? 'DSM'} at ${profile.dsm.pixelSizeXMeters.toFixed(2)}m px`
       : 'DSM loaded'
