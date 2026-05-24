@@ -10,7 +10,23 @@ const OSLO = { lat: 59.9139, lng: 10.7522 }
 const SOLAR_RADIUS_METERS = 300
 const SOLAR_PIXEL_SIZE_METERS = 0.5
 
-const profileCache = new LruMap<string, Promise<Response>>(200)
+interface PoiProfilePayload {
+  dsm: {
+    bounds: unknown
+    height: number
+    imageryDate?: unknown
+    imageryQuality?: string
+    pixelSizeXMeters: number
+    pixelSizeYMeters: number
+    width: number
+  }
+  horizon: number[]
+  lat: number
+  lng: number
+  observerElevationMeters: number
+}
+
+const profileCache = new LruMap<string, Promise<PoiProfilePayload>>(200)
 
 export const apiConfig: BuildAction<'GET', typeof routes.apiConfig> = {
   handler() {
@@ -35,17 +51,17 @@ export const apiConfig: BuildAction<'GET', typeof routes.apiConfig> = {
 }
 
 export const poiProfile: BuildAction<'GET', typeof routes.apiPoiProfile> = {
-  handler({ request }) {
+  async handler({ request }) {
     let { allowed, retryAfterSeconds } = checkRateLimit(getClientIp(request))
     if (!allowed) {
       return json({ error: 'Too many requests.' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } })
     }
 
     let url = new URL(request.url)
-    let lat = Number(url.searchParams.get('lat'))
-    let lng = Number(url.searchParams.get('lng'))
+    let lat = parseCoordinate(url.searchParams.get('lat'))
+    let lng = parseCoordinate(url.searchParams.get('lng'))
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (lat === undefined || lng === undefined) {
       return json({ error: 'lat and lng query parameters are required.' }, { status: 400 })
     }
 
@@ -54,56 +70,62 @@ export const poiProfile: BuildAction<'GET', typeof routes.apiPoiProfile> = {
     }
 
     let key = `${lat.toFixed(5)},${lng.toFixed(5)}`
-    let cached = profileCache.get(key)
-    if (!cached) {
-      cached = buildProfileResponse(lat, lng)
-      profileCache.set(key, cached)
+    let profile = profileCache.get(key)
+    if (!profile) {
+      profile = buildProfilePayload(lat, lng).catch((error: unknown) => {
+        profileCache.delete(key)
+        throw error
+      })
+      profileCache.set(key, profile)
     }
-    return cached
-  },
-}
 
-async function buildProfileResponse(lat: number, lng: number) {
-  try {
-    let dsm = await getDsmForPoint({
-      lat,
-      lng,
-      radiusMeters: SOLAR_RADIUS_METERS,
-      pixelSizeMeters: SOLAR_PIXEL_SIZE_METERS,
-    })
-    let profile = computeHorizonProfile(dsm, lat, lng, SOLAR_RADIUS_METERS)
-
-    return json(
-      {
-        lat,
-        lng,
-        horizon: profile.horizon,
-        observerElevationMeters: profile.observerElevationMeters,
-        dsm: {
-          bounds: dsm.bounds,
-          width: dsm.width,
-          height: dsm.height,
-          pixelSizeXMeters: dsm.pixelSizeXMeters,
-          pixelSizeYMeters: dsm.pixelSizeYMeters,
-          imageryQuality: dsm.imageryQuality,
-          imageryDate: dsm.imageryDate,
-        },
-      },
-      {
+    try {
+      return json(await profile, {
         headers: {
           'Cache-Control': 'private, max-age=86400',
         },
-      },
-    )
-  } catch (error) {
-    profileCache.delete(`${lat.toFixed(5)},${lng.toFixed(5)}`)
-    if (isCoverageError(error)) {
-      return json({ error: 'Outside Solar DSM coverage.' }, { status: 404 })
-    }
+      })
+    } catch (error) {
+      if (isCoverageError(error)) {
+        return json({ error: 'Outside Solar DSM coverage.' }, { status: 404 })
+      }
 
-    let message = error instanceof Error ? error.message : 'Unable to compute sun profile.'
-    return json({ error: message }, { status: 502 })
+      let message = error instanceof Error ? error.message : 'Unable to compute sun profile.'
+      return json({ error: message }, { status: 502 })
+    }
+  },
+}
+
+async function buildProfilePayload(lat: number, lng: number): Promise<PoiProfilePayload> {
+  let dsm = await getDsmForPoint({
+    lat,
+    lng,
+    radiusMeters: SOLAR_RADIUS_METERS,
+    pixelSizeMeters: SOLAR_PIXEL_SIZE_METERS,
+  })
+  let profile = computeHorizonProfile(dsm, lat, lng, SOLAR_RADIUS_METERS)
+
+  return {
+    lat,
+    lng,
+    horizon: profile.horizon,
+    observerElevationMeters: profile.observerElevationMeters,
+    dsm: {
+      bounds: dsm.bounds,
+      width: dsm.width,
+      height: dsm.height,
+      pixelSizeXMeters: dsm.pixelSizeXMeters,
+      pixelSizeYMeters: dsm.pixelSizeYMeters,
+      imageryQuality: dsm.imageryQuality,
+      imageryDate: dsm.imageryDate,
+    },
   }
+}
+
+function parseCoordinate(value: string | null) {
+  if (value === null || value.trim() === '') return undefined
+  let coordinate = Number(value)
+  return Number.isFinite(coordinate) ? coordinate : undefined
 }
 
 function isCoverageError(error: unknown) {
