@@ -362,6 +362,7 @@ async function setupPlaceSearch(origin: google.maps.LatLngLiteral) {
 
   els.placeSearch.replaceChildren(placeAutocomplete)
   syncPlaceAutocompleteStyles()
+  requestAnimationFrame(() => syncPlaceAutocompleteStyles())
 }
 
 function setPlaceSearchMessage(message = '') {
@@ -836,6 +837,7 @@ function syncPlaceAutocompleteStyles(theme?: UiTheme) {
   let placeholder = theme?.textMuted ?? bodyStyle.getPropertyValue('--ui-text-muted').trim()
 
   for (let element of document.querySelectorAll<HTMLElement>('gmp-place-autocomplete')) {
+    element.style.colorScheme = 'light'
     element.style.setProperty('--utepils-place-text', text)
     element.style.setProperty('--utepils-place-placeholder', placeholder)
     if (element.shadowRoot) injectPlaceAutocompleteStyles(element.shadowRoot)
@@ -847,10 +849,17 @@ function injectPlaceAutocompleteStyles(root: ShadowRoot) {
     let style = document.createElement('style')
     style.id = 'utepils-place-autocomplete-style'
     style.textContent = `
+      :host,
+      * {
+        color-scheme: light !important;
+      }
+
       input,
       textarea,
       [part~="input"] {
+        background: transparent !important;
         color: var(--utepils-place-text) !important;
+        caret-color: var(--utepils-place-text) !important;
       }
 
       [part~="clear-icon"],

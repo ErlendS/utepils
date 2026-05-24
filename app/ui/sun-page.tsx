@@ -372,6 +372,7 @@ const placeSearchStyle = css({
     border: "1px solid var(--ui-control-border)",
     borderRadius: "8px",
     boxShadow: "inset 0 1px 0 var(--ui-card-highlight)",
+    colorScheme: "light",
     display: "block",
     maxWidth: "100%",
     minWidth: 0,
