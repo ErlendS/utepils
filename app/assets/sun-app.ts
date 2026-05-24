@@ -1596,7 +1596,7 @@ function injectMarkerStyles() {
       position: absolute;
       top: 50%;
       transform: translate(-50%, -50%);
-      transition: box-shadow 160ms ease, transform 160ms ease;
+      transition: box-shadow 160ms ease, opacity 160ms ease, transform 160ms ease;
       touch-action: none;
       width: 44px;
     }
@@ -1609,6 +1609,7 @@ function injectMarkerStyles() {
 
     .sun-map-marker[data-dragging="place"] .sun-map-marker__core {
       cursor: grabbing;
+      opacity: 0.54;
     }
 
     .sun-map-marker[data-has-day="true"] .sun-map-marker__core:hover,
