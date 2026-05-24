@@ -512,7 +512,7 @@ async function selectPoint(point: google.maps.LatLngLiteral) {
     let message = error instanceof Error ? error.message : 'Profile request failed.'
     let isCoverageError = error instanceof HttpError && error.status === 404
     setStatus(isCoverageError ? 'Outside coverage' : 'Profile failed', message, 'error')
-    if (!isCoverageError) showErrorToast(message)
+    showErrorToast(message)
     els.windows.innerHTML = ''
   }
 }
