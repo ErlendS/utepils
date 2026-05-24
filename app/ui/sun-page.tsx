@@ -151,13 +151,39 @@ export function SunPage() {
                   --:--
                 </output>
               </div>
-              <input
-                id="time-slider"
-                type="range"
-                min="0"
-                max="1439"
-                step="1"
-              />
+              <div mix={sliderWrapStyle}>
+                <input
+                  id="time-slider"
+                  type="range"
+                  min="0"
+                  max="1439"
+                  step="1"
+                />
+                <span
+                  id="time-slider-thumb"
+                  mix={sliderThumbStyle}
+                  aria-hidden="true"
+                >
+                  <svg viewBox="0 0 22 22">
+                    <title>Sun beams</title>
+                    <g id="time-slider-thumb-beams">
+                      <path d="M8.85 2.25L11 -12.4L13.15 2.25Z" />
+                      <path d="M16.15 3.6L27.85 -5.85L19.4 6.85Z" />
+                      <path d="M19.4 7.65L33.8 3.25L20.15 10.05Z" />
+                      <path d="M20.15 11.95L33.8 18.75L19.4 14.35Z" />
+                      <path d="M19.4 15.15L27.85 27.85L16.15 18.4Z" />
+                      <path d="M13.15 19.75L11 34.4L8.85 19.75Z" />
+                      <path d="M5.85 18.4L-5.85 27.85L2.6 15.15Z" />
+                      <path d="M2.6 14.35L-11.8 18.75L1.85 11.95Z" />
+                      <path d="M1.85 10.05L-11.8 3.25L2.6 7.65Z" />
+                      <path d="M2.6 6.85L-5.85 -5.85L5.85 3.6Z" />
+                    </g>
+                    <path id="time-slider-thumb-shape" />
+                    <path id="time-slider-thumb-inner" />
+                    <path id="time-slider-thumb-highlight" />
+                  </svg>
+                </span>
+              </div>
               <div
                 id="sun-windows"
                 mix={windowsStyle}
@@ -536,6 +562,12 @@ const factsStyle = css({
 const scrubberStyle = css({
   display: "grid",
   gap: "14px",
+});
+
+const sliderWrapStyle = css({
+  "--slider-thumb-x": "11px",
+  height: "28px",
+  position: "relative",
   "& input[type='range']": {
     appearance: "none",
     background: "transparent",
@@ -547,11 +579,7 @@ const scrubberStyle = css({
   "& input[type='range']:focus": {
     outline: "none",
   },
-  "& input[type='range']:focus-visible::-webkit-slider-thumb": {
-    outline: "3px solid var(--ui-focus)",
-    outlineOffset: "3px",
-  },
-  "& input[type='range']:focus-visible::-moz-range-thumb": {
+  "& input[type='range']:focus-visible + span": {
     outline: "3px solid var(--ui-focus)",
     outlineOffset: "3px",
   },
@@ -575,23 +603,62 @@ const scrubberStyle = css({
   },
   "& input[type='range']::-webkit-slider-thumb": {
     appearance: "none",
-    background: "var(--ui-slider-thumb)",
-    border: "2px solid var(--ui-slider-thumb-border)",
+    background: "transparent",
+    border: 0,
     borderRadius: "999px",
-    boxShadow:
-      "0 5px 12px var(--ui-slider-thumb-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 4px rgba(85, 53, 0, 0.18)",
     height: "22px",
     marginTop: "-9px",
     width: "22px",
   },
   "& input[type='range']::-moz-range-thumb": {
-    background: "var(--ui-slider-thumb)",
-    border: "2px solid var(--ui-slider-thumb-border)",
+    background: "transparent",
+    border: 0,
     borderRadius: "999px",
-    boxShadow:
-      "0 5px 12px var(--ui-slider-thumb-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 4px rgba(85, 53, 0, 0.18)",
-    height: "18px",
-    width: "18px",
+    height: "22px",
+    width: "22px",
+  },
+});
+
+const sliderThumbStyle = css({
+  display: "block",
+  filter: "drop-shadow(0 5px 8px var(--ui-slider-thumb-shadow))",
+  height: "22px",
+  left: "var(--slider-thumb-x)",
+  pointerEvents: "none",
+  position: "absolute",
+  top: "50%",
+  transform: "translate(-50%, -50%)",
+  width: "22px",
+  "& svg": {
+    display: "block",
+    height: "22px",
+    overflow: "visible",
+    width: "22px",
+  },
+  "& path": {
+    vectorEffect: "non-scaling-stroke",
+  },
+  "& g path": {
+    fill: "#f5b93f",
+    stroke: "rgba(255, 210, 93, 0.48)",
+    strokeLinejoin: "round",
+    strokeWidth: "0.7",
+  },
+  "& g": {
+    opacity: 0,
+    transform: "scale(0.72)",
+    transformBox: "fill-box",
+    transformOrigin: "center",
+    transition: "opacity 150ms ease, transform 180ms ease",
+  },
+  "&[data-sunlit='true'] g": {
+    opacity: 0.82,
+    transform: "scale(1)",
+  },
+  "@media (prefers-reduced-motion: reduce)": {
+    "& g": {
+      transition: "none",
+    },
   },
 });
 

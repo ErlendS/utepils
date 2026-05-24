@@ -213,6 +213,10 @@ let skyTransition: { from: SkyTheme; startedAt: number; to: SkyTheme } | undefin
 let sunAngleDragAzimuth: number | undefined
 let sunAngleDragMinute: number | undefined
 let markerDragMapOptions: google.maps.MapOptions | undefined
+let renderedSliderThumbAmount = 0
+let sliderThumbAnimationFrame: number | undefined
+let sliderThumbTargetAmount = 0
+let sliderThumbTransition: { from: number; startedAt: number; to: number } | undefined
 
 const els = {
   copyLink: document.querySelector<HTMLButtonElement>('#copy-link-button')!,
@@ -225,6 +229,10 @@ const els = {
   placeSearch: document.querySelector<HTMLElement>('#place-search')!,
   point: document.querySelector<HTMLElement>('#point-readout')!,
   slider: document.querySelector<HTMLInputElement>('#time-slider')!,
+  sliderThumb: document.querySelector<HTMLElement>('#time-slider-thumb')!,
+  sliderThumbHighlight: document.querySelector<SVGPathElement>('#time-slider-thumb-highlight')!,
+  sliderThumbInner: document.querySelector<SVGPathElement>('#time-slider-thumb-inner')!,
+  sliderThumbShape: document.querySelector<SVGPathElement>('#time-slider-thumb-shape')!,
   time: document.querySelector<HTMLElement>('#time-output')!,
   toast: document.querySelector<HTMLElement>('#map-toast')!,
   useLocation: document.querySelector<HTMLButtonElement>('#use-location-button')!,
@@ -512,6 +520,7 @@ function updateForCurrentTime() {
   let minutes = Number(els.slider.value)
   let time = dateForMinutes(minutes)
   els.time.textContent = formatTime(time)
+  updateSliderThumbPosition()
 
   let skyReading = selectedProfile
     ? readSun(selectedProfile, time)
@@ -520,7 +529,11 @@ function updateForCurrentTime() {
       : ambientSkyPoint
         ? readSkySun(ambientSkyPoint, time)
         : undefined
-  if (skyReading) applySkyTheme(skyReading)
+  if (skyReading) {
+    updateSliderThumbShape(skyReading.altitude < 0 ? 1 : 0)
+    updateSliderThumbSunlight(skyReading.inSun)
+    applySkyTheme(skyReading)
+  }
 
   if (!selectedProfile || !selectedPoint) return
 
@@ -534,6 +547,106 @@ function updateForCurrentTime() {
     ).toFixed(1)}°`,
     reading.inSun ? 'sun' : 'shade',
   )
+}
+
+function updateSliderThumbPosition() {
+  let min = Number(els.slider.min || 0)
+  let max = Number(els.slider.max || 100)
+  let value = Number(els.slider.value)
+  let amount = max === min ? 0 : clamp01((value - min) / (max - min))
+  els.sliderThumb.style.setProperty(
+    '--slider-thumb-x',
+    `calc(11px + ${(amount * 100).toFixed(4)}% - ${(amount * 22).toFixed(4)}px)`,
+  )
+}
+
+function updateSliderThumbShape(targetAmount: number) {
+  if (targetAmount === sliderThumbTargetAmount) return
+
+  if (targetAmount > 0) updateSliderThumbSunlight(false)
+  sliderThumbTargetAmount = targetAmount
+  sliderThumbTransition = {
+    from: renderedSliderThumbAmount,
+    startedAt: performance.now(),
+    to: targetAmount,
+  }
+
+  if (sliderThumbAnimationFrame === undefined) {
+    sliderThumbAnimationFrame = requestAnimationFrame(animateSliderThumb)
+  }
+}
+
+function animateSliderThumb(time: number) {
+  sliderThumbAnimationFrame = undefined
+  if (!sliderThumbTransition) return
+
+  let amount = smoothstep((time - sliderThumbTransition.startedAt) / 190)
+  renderSliderThumb(mixNumber(sliderThumbTransition.from, sliderThumbTransition.to, amount))
+
+  if (amount < 1) {
+    sliderThumbAnimationFrame = requestAnimationFrame(animateSliderThumb)
+    return
+  }
+
+  renderSliderThumb(sliderThumbTransition.to)
+  sliderThumbTransition = undefined
+}
+
+function renderSliderThumb(amount: number) {
+  renderedSliderThumbAmount = amount
+
+  let innerControlX = mixNumber(20.25, 6.35, amount)
+  let innerLowerY = mixNumber(16.11, 15.75, amount)
+  let innerUpperY = mixNumber(5.89, 6.25, amount)
+  let fill = mixHex('#f5b93f', '#f0f5ff', amount)
+  let innerStroke = amount < 0.5 ? 'rgba(85, 53, 0, 0.18)' : '#b9c8df'
+
+  let shapePath =
+    amount <= 0.001
+      ? 'M11 1.75A9.25 9.25 0 1 1 11 20.25A9.25 9.25 0 1 1 11 1.75Z'
+      : `M11 1.75C5.89 1.75 1.75 5.89 1.75 11C1.75 16.11 5.89 20.25 11 20.25C${innerControlX.toFixed(
+          2,
+        )} ${innerLowerY.toFixed(2)} ${innerControlX.toFixed(2)} ${innerUpperY.toFixed(2)} 11 1.75Z`
+
+  els.sliderThumbShape.setAttribute('d', shapePath)
+  els.sliderThumbShape.setAttribute('fill', fill)
+  els.sliderThumbShape.setAttribute('stroke', 'rgba(255, 255, 255, 0.74)')
+  els.sliderThumbShape.setAttribute('stroke-linejoin', 'round')
+  els.sliderThumbShape.setAttribute('stroke-width', '2')
+
+  els.sliderThumbInner.setAttribute(
+    'd',
+    `M11 3.9C${mixNumber(17.05, 8.96, amount).toFixed(2)} ${mixNumber(4.68, 5.35, amount).toFixed(
+      2,
+    )} ${mixNumber(18.1, 7.65, amount).toFixed(2)} ${mixNumber(7.72, 7.73, amount).toFixed(
+      2,
+    )} ${mixNumber(18.1, 7.65, amount).toFixed(2)} 11C${mixNumber(18.1, 7.65, amount).toFixed(
+      2,
+    )} ${mixNumber(14.28, 16.65, amount).toFixed(2)} ${mixNumber(17.05, 8.96, amount).toFixed(
+      2,
+    )} ${mixNumber(17.32, 16.65, amount).toFixed(2)} 11 18.1`,
+  )
+  els.sliderThumbInner.setAttribute('fill', 'none')
+  els.sliderThumbInner.setAttribute('opacity', String(mixNumber(0.18, 1, amount)))
+  els.sliderThumbInner.setAttribute('stroke', innerStroke)
+  els.sliderThumbInner.setAttribute('stroke-linecap', 'round')
+  els.sliderThumbInner.setAttribute('stroke-width', String(mixNumber(1.8, 1.25, amount)))
+
+  els.sliderThumbHighlight.setAttribute(
+    'd',
+    amount < 0.5
+      ? 'M6.2 5.35C7.65 4.08 9.14 3.45 11 3.45'
+      : 'M6.45 5.15C4.75 6.53 3.75 8.65 3.75 11C3.75 13.24 4.65 15.26 6.11 16.62',
+  )
+  els.sliderThumbHighlight.setAttribute('fill', 'none')
+  els.sliderThumbHighlight.setAttribute('opacity', String(mixNumber(0.72, 0.58, amount)))
+  els.sliderThumbHighlight.setAttribute('stroke', 'rgba(255, 255, 255, 0.58)')
+  els.sliderThumbHighlight.setAttribute('stroke-linecap', 'round')
+  els.sliderThumbHighlight.setAttribute('stroke-width', '1')
+}
+
+function updateSliderThumbSunlight(inSun: boolean) {
+  els.sliderThumb.dataset.sunlit = inSun && sliderThumbTargetAmount === 0 ? 'true' : 'false'
 }
 
 function readSun(profile: HorizonResponse, time: Date): SunReading {
@@ -1656,6 +1769,8 @@ function setSliderToNow() {
   let minutes = now.getHours() * 60 + now.getMinutes()
   els.slider.value = String(minutes)
   els.time.textContent = formatTime(now)
+  updateSliderThumbPosition()
+  renderSliderThumb(renderedSliderThumbAmount)
 }
 
 function dateForMinutes(minutes: number) {
