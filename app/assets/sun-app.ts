@@ -1204,6 +1204,7 @@ function createSunMarkerOverlay(point: google.maps.LatLngLiteral, mode: MarkerMo
   overlay.setMode(mode)
   bindSunAngleDragHandle(day, element)
   bindMarkerPositionDragHandle(core, element, overlay)
+  bindMarkerPositionDragHandle(day, element, overlay, () => element.dataset.mode === 'error')
   return overlay
 }
 
@@ -1310,13 +1311,19 @@ function finishSunAngleDrag(element: HTMLElement) {
   sunAngleDragMinute = undefined
 }
 
-function bindMarkerPositionDragHandle(handle: MarkerDragHandle, element: HTMLElement, overlay: SunMarkerOverlay) {
+function bindMarkerPositionDragHandle(
+  handle: MarkerDragHandle,
+  element: HTMLElement,
+  overlay: SunMarkerOverlay,
+  canStartDrag = () => true,
+) {
   let dragStartPointer: { x: number; y: number } | undefined
   let dragStartPixel: google.maps.Point | undefined
   let didMove = false
   let nextPoint: google.maps.LatLngLiteral | undefined
 
   handle.addEventListener('pointerdown', (event) => {
+    if (!canStartDrag()) return
     if (!selectedPoint) return
     let projection = overlay.getProjection()
     let startPixel = projection?.fromLatLngToDivPixel(new google.maps.LatLng(selectedPoint))
@@ -1403,7 +1410,7 @@ function compassAngleFromPointer(event: PointerEvent, element: HTMLElement) {
 }
 
 function preventMarkerTouchGesture(event: TouchEvent) {
-  if (!selectedProfile) return
+  if (!selectedProfile && !selectedPoint) return
   suppressMapClickAfterMarkerDrag()
   event.preventDefault()
   event.stopPropagation()
@@ -1478,7 +1485,13 @@ function injectMarkerStyles() {
       pointer-events: auto;
     }
 
-    .sun-map-marker[data-dragging="time"] .sun-map-marker__day {
+    .sun-map-marker[data-mode="error"] .sun-map-marker__day {
+      cursor: grab;
+      pointer-events: auto;
+    }
+
+    .sun-map-marker[data-dragging="time"] .sun-map-marker__day,
+    .sun-map-marker[data-dragging="place"] .sun-map-marker__day {
       cursor: grabbing;
     }
 
@@ -1588,7 +1601,8 @@ function injectMarkerStyles() {
       width: 44px;
     }
 
-    .sun-map-marker[data-has-day="true"] .sun-map-marker__core {
+    .sun-map-marker[data-has-day="true"] .sun-map-marker__core,
+    .sun-map-marker[data-mode="error"] .sun-map-marker__core {
       cursor: grab;
       pointer-events: auto;
     }
@@ -1598,6 +1612,7 @@ function injectMarkerStyles() {
     }
 
     .sun-map-marker[data-has-day="true"] .sun-map-marker__core:hover,
+    .sun-map-marker[data-mode="error"] .sun-map-marker__core:hover,
     .sun-map-marker[data-dragging="place"] .sun-map-marker__core {
       box-shadow:
         0 0 0 4px rgba(255, 255, 255, 0.5),
