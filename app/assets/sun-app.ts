@@ -1,4 +1,4 @@
-import SunCalc from 'suncalc'
+import { getSunPosition } from './sun-position.ts'
 
 declare global {
   interface Window {
@@ -537,7 +537,7 @@ function updateForCurrentTime() {
 }
 
 function readSun(profile: HorizonResponse, time: Date): SunReading {
-  let sun = SunCalc.getPosition(time, profile.lat, profile.lng)
+  let sun = getSunPosition(time, profile.lat, profile.lng)
   let azimuthDeg = ((toDegrees(sun.azimuth) + 180 + 360) % 360)
   let horizonAltitude = profile.horizon[Math.round(azimuthDeg) % 360] ?? Math.PI / 2
   let inSun = sun.altitude > 0 && sun.altitude > horizonAltitude
@@ -551,7 +551,7 @@ function readSun(profile: HorizonResponse, time: Date): SunReading {
 }
 
 function readSkySun(point: google.maps.LatLngLiteral, time: Date): SunReading {
-  let sun = SunCalc.getPosition(time, point.lat, point.lng)
+  let sun = getSunPosition(time, point.lat, point.lng)
   let azimuthDeg = ((toDegrees(sun.azimuth) + 180 + 360) % 360)
 
   return {
