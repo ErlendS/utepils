@@ -20,9 +20,6 @@ importers:
       remix:
         specifier: 3.0.0-beta.0
         version: 3.0.0-beta.0(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
-      suncalc:
-        specifier: 1.9.0
-        version: 1.9.0
       tsx:
         specifier: 4.21.0
         version: 4.21.0
@@ -36,6 +33,9 @@ importers:
       '@types/suncalc':
         specifier: 1.9.2
         version: 1.9.2
+      suncalc:
+        specifier: 1.9.0
+        version: 1.9.0
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -1090,7 +1090,7 @@ packages:
     hasBin: true
 
   uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/a63031f40f76dc2422e8da736c04217053e9db2b:
-    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/a63031f40f76dc2422e8da736c04217053e9db2b}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/a63031f40f76dc2422e8da736c04217053e9db2b}
     version: 20.66.0
 
   undici-types@7.19.2:
